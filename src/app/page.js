@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Menu, X, Star, Truck, Phone, Trash2, ArrowRight, CheckCircle, Loader2, Search } from 'lucide-react';
 
-// ... (Data remains the same) ...
+// --- DATA ---
 const PRODUCTS = [
   { id: 1, name: 'Argentina 3 Star Home Jersey', price: 1200, category: 'National Teams', image: 'https://placehold.co/400x500/png?text=ARG+3+Star', badge: 'Fan Favorite' },
   { id: 2, name: 'Real Madrid Home Kit 24/25', price: 1450, category: 'La Liga', image: 'https://placehold.co/400x500/png?text=Hala+Madrid', badge: 'New Season' },
@@ -12,6 +12,7 @@ const PRODUCTS = [
   { id: 6, name: 'Brazil Player Version', price: 1600, category: 'National Teams', image: 'https://placehold.co/400x500/png?text=Brazil', badge: 'Premium' }
 ];
 
+// --- CART DRAWER COMPONENT ---
 const CartDrawer = ({ isOpen, onClose, cartItems, onRemoveItem, clearCart }) => {
   const [step, setStep] = useState('cart');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -88,6 +89,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, onRemoveItem, clearCart }) => 
   );
 };
 
+// --- PRODUCT QUICK VIEW MODAL ---
 const ProductModal = ({ product, isOpen, onClose, onConfirm }) => {
   const [size, setSize] = useState('');
   if (!isOpen || !product) return null;
@@ -107,9 +109,17 @@ const ProductModal = ({ product, isOpen, onClose, onConfirm }) => {
   );
 };
 
-const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm }) => {
+// --- NAVBAR WITH SEARCH DROPDOWN ---
+const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm, products, onProductClick }) => {
   const [isOpen, setIsOpen] = useState(false);
+  
+  // Filter products for the dropdown
+  const filteredSearch = products.filter(p => 
+    searchTerm && p.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const handleFilter = (category) => { setCategory(category); setIsOpen(false); };
+
   return (
     <nav className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -117,7 +127,6 @@ const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm 
           <div className="flex items-center sm:hidden"><button onClick={() => setIsOpen(!isOpen)} className="text-gray-800">{isOpen ? <X size={24} /> : <Menu size={24} />}</button></div>
           <div className="flex-shrink-0 flex items-center cursor-pointer" onClick={() => handleFilter('All')}><span className="text-2xl font-extrabold tracking-tighter text-black italic">KICKOFF<span className="text-red-600">.</span>KITS</span></div>
           
-          {/* DESKTOP NAV */}
           <div className="hidden sm:flex space-x-8">
             <button onClick={() => handleFilter('Premier League')} className="text-gray-600 hover:text-black font-medium">Premier League</button>
             <button onClick={() => handleFilter('La Liga')} className="text-gray-600 hover:text-black font-medium">La Liga</button>
@@ -125,16 +134,37 @@ const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm 
           </div>
 
           <div className="flex items-center gap-4">
-             {/* SEARCH BAR (NEW) */}
-             <div className="hidden md:flex items-center bg-gray-100 px-3 py-2 rounded-full">
-              <Search size={16} className="text-gray-500"/>
-              <input 
-                type="text" 
-                placeholder="Search jerseys..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="bg-transparent border-none focus:outline-none text-sm ml-2 w-32 md:w-48 placeholder-gray-500"
-              />
+             {/* SEARCH BAR (DESKTOP) WITH DROPDOWN */}
+             <div className="hidden md:block relative">
+               <div className="flex items-center bg-gray-100 px-3 py-2 rounded-full">
+                <Search size={16} className="text-gray-500"/>
+                <input 
+                  type="text" 
+                  placeholder="Search jerseys..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="bg-transparent border-none focus:outline-none text-sm ml-2 w-32 md:w-48 placeholder-gray-500"
+                />
+              </div>
+              
+              {/* SEARCH DROPDOWN POPUP */}
+              {searchTerm && filteredSearch.length > 0 && (
+                <div className="absolute top-full left-0 w-64 bg-white shadow-xl rounded-xl border border-gray-100 mt-2 overflow-hidden z-[60]">
+                  {filteredSearch.map(product => (
+                    <div 
+                      key={product.id} 
+                      onClick={() => { onProductClick(product); setSearchTerm(''); }}
+                      className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors"
+                    >
+                      <img src={product.image} className="w-10 h-10 object-cover rounded bg-gray-100" />
+                      <div>
+                        <p className="text-sm font-bold text-gray-900 line-clamp-1">{product.name}</p>
+                        <p className="text-xs text-gray-500">৳ {product.price}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <button onClick={onOpenCart} className="relative p-2 text-gray-800 hover:text-black"><ShoppingBag size={24} />{cartCount > 0 && <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-red-600 rounded-full">{cartCount}</span>}</button>
@@ -144,7 +174,7 @@ const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm 
       
       {/* MOBILE MENU */}
       {isOpen && (
-        <div className="sm:hidden bg-white border-t border-gray-100">
+        <div className="sm:hidden bg-white border-t border-gray-100 relative">
           <div className="p-4 border-b border-gray-100">
              <input 
                 type="text" 
@@ -153,6 +183,24 @@ const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm 
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full bg-gray-100 px-4 py-2 rounded-lg text-sm focus:outline-none"
               />
+              {/* MOBILE SEARCH DROPDOWN */}
+              {searchTerm && filteredSearch.length > 0 && (
+                <div className="absolute left-4 right-4 bg-white shadow-xl rounded-xl border border-gray-100 mt-2 z-[60]">
+                  {filteredSearch.map(product => (
+                    <div 
+                      key={product.id} 
+                      onClick={() => { onProductClick(product); setSearchTerm(''); setIsOpen(false); }}
+                      className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0"
+                    >
+                      <img src={product.image} className="w-10 h-10 object-cover rounded bg-gray-100" />
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{product.name}</p>
+                        <p className="text-xs text-gray-500">৳ {product.price}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
           </div>
           <div className="pt-2 pb-4 space-y-1">
             <button onClick={() => handleFilter('Premier League')} className="block w-full text-left px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">Premier League</button>
@@ -177,7 +225,7 @@ const ProductCard = ({ product, openQuickView }) => {
 export default function ClothingStore() {
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [searchTerm, setSearchTerm] = useState(''); // NEW STATE
+  const [searchTerm, setSearchTerm] = useState('');
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false); 
   const [currentProduct, setCurrentProduct] = useState(null);
@@ -190,7 +238,6 @@ export default function ClothingStore() {
   const removeFromCart = (index) => { setCart(cart.filter((_, i) => i !== index)); };
   const clearCart = () => { setCart([]); localStorage.removeItem('kickoff-cart'); };
   
-  // UPDATED FILTERING LOGIC
   const filteredProducts = PRODUCTS.filter(product => {
     const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -199,7 +246,16 @@ export default function ClothingStore() {
 
   return (
     <div className="min-h-screen bg-white font-sans text-gray-900">
-      <Navbar cartCount={cart.length} setCategory={setSelectedCategory} onOpenCart={() => setIsCartOpen(true)} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+      {/* Updated Navbar with Search Dropdown Props */}
+      <Navbar 
+        cartCount={cart.length} 
+        setCategory={setSelectedCategory} 
+        onOpenCart={() => setIsCartOpen(true)} 
+        searchTerm={searchTerm} 
+        setSearchTerm={setSearchTerm}
+        products={PRODUCTS}
+        onProductClick={openQuickView} 
+      />
       <ProductModal isOpen={isQuickViewOpen} product={currentProduct} onClose={() => setIsQuickViewOpen(false)} onConfirm={confirmAddToCart} />
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cartItems={cart} onRemoveItem={removeFromCart} clearCart={clearCart} />
       <div className="relative bg-gray-900 text-white"><div className="absolute inset-0 bg-gray-800"></div><div className="relative max-w-7xl mx-auto px-4 py-24 sm:px-6 lg:px-8 flex flex-col items-center text-center"><h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-4">WEAR YOUR PASSION</h1><p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-2xl">Premium Player & Fan Version Jerseys. Delivered All Over Bangladesh.</p><button onClick={() => setSelectedCategory('All')} className="bg-white text-black font-bold py-3 px-8 rounded-full hover:bg-gray-200 transition-colors">Shop All Kits</button></div></div>
