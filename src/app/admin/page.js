@@ -1,16 +1,13 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { PhoneIncoming, CheckSquare, Package, Lock, CheckCircle, Archive, Plus, Search, Tag, Image as ImageIcon, Trash2, Power, AlertCircle, RefreshCw, MapPin, Phone, Truck } from 'lucide-react';
+import { PhoneIncoming, CheckSquare, Package, Lock, CheckCircle, Archive, Plus, Search, Tag, Image as ImageIcon, Trash2, Power, AlertCircle, RefreshCw, MapPin, Phone, Truck, Upload, Loader2 } from 'lucide-react';
 
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passcode, setPasscode] = useState('');
   const [error, setError] = useState('');
   
-  // TABS: 'pending' (New), 'confirmed' (Processing), 'delivered' (Done), 'add' (New Product), 'manage' (Stock)
   const [activeTab, setActiveTab] = useState('pending'); 
-  
-  // Data
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,6 +16,7 @@ export default function AdminDashboard() {
   // Forms
   const [newProduct, setNewProduct] = useState({ name: '', price: '', category: 'National Teams', image: '', badge: '' });
   const [isAdding, setIsAdding] = useState(false);
+  const [isUploading, setIsUploading] = useState(false); // New state for upload spinner
 
   // --- ACTIONS ---
   const handleLogin = (e) => { e.preventDefault(); if (passcode === "admin123") { setIsAuthenticated(true); loadData(); } else { setError("Wrong Passcode"); setPasscode(''); } };
@@ -30,20 +28,41 @@ export default function AdminDashboard() {
   };
 
   const fetchOrders = async () => { try { const res = await fetch('/api/order', { cache: 'no-store' }); const data = await res.json(); setOrders(data.orders || []); } catch (e) {} };
-  
   const fetchProducts = async () => { try { const res = await fetch('/api/products', { cache: 'no-store' }); const data = await res.json(); setProducts(data || []); } catch (e) {} };
 
-  // ORDER ACTIONS
   const updateStatus = async (orderId, newStatus) => {
-    // Optimistic Update
     setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     await fetch('/api/order', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: orderId, status: newStatus }) });
   };
 
-  // PRODUCT ACTIONS
+  // --- NEW: IMAGE UPLOAD FUNCTION ---
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.success) {
+        setNewProduct({ ...newProduct, image: data.url }); // Auto-fill the image field
+      } else {
+        alert("Upload failed. Try again.");
+      }
+    } catch (err) {
+      alert("Error uploading image.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleAddProduct = async (e) => {
     e.preventDefault();
     setIsAdding(true);
+    // Use the uploaded image, or a placeholder if they didn't upload one
     const productToSend = { ...newProduct, image: newProduct.image || `https://placehold.co/400x500/png?text=${newProduct.name.replace(/ /g, '+')}` };
     try {
       const res = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(productToSend) });
@@ -64,25 +83,16 @@ export default function AdminDashboard() {
     try { await fetch(`/api/products?id=${id}`, { method: 'DELETE' }); } catch (err) { fetchProducts(); }
   };
 
-  // --- FILTERING ---
   const filterList = (list) => {
     if (!searchTerm) return list;
     const s = searchTerm.toLowerCase();
     return list.filter(o => o.customer?.name.toLowerCase().includes(s) || o.customer?.phone.includes(s) || o.id?.toString().includes(s));
   };
 
-  // 1. Pending (New Orders)
   const pendingOrders = filterList(orders.filter(o => o.status === 'Pending'));
-  
-  // 2. Confirmed (Approved OR Shipped)
   const confirmedOrders = filterList(orders.filter(o => o.status === 'Approved' || o.status === 'Shipped'));
-  
-  // 3. Delivered (Completed)
   const deliveredOrders = filterList(orders.filter(o => o.status === 'Delivered'));
-  
   const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-
-  // Decide what to show based on tab
   const displayedOrders = activeTab === 'pending' ? pendingOrders : activeTab === 'confirmed' ? confirmedOrders : deliveredOrders;
 
   if (!isAuthenticated) return (
@@ -112,17 +122,13 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* TABS NAVIGATION */}
         <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-          <button onClick={() => setActiveTab('pending')} className={`pb-4 px-4 font-bold whitespace-nowrap flex items-center gap-2 ${activeTab === 'pending' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}><PhoneIncoming size={18} /> New Orders ({pendingOrders.length})</button>
+          <button onClick={() => setActiveTab('pending')} className={`pb-4 px-4 font-bold whitespace-nowrap flex items-center gap-2 ${activeTab === 'pending' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}><PhoneIncoming size={18} /> New ({pendingOrders.length})</button>
           <button onClick={() => setActiveTab('confirmed')} className={`pb-4 px-4 font-bold whitespace-nowrap flex items-center gap-2 ${activeTab === 'confirmed' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'}`}><CheckSquare size={18} /> Confirmed ({confirmedOrders.length})</button>
-          {/* NEW DELIVERED TAB */}
-          <button onClick={() => setActiveTab('delivered')} className={`pb-4 px-4 font-bold whitespace-nowrap flex items-center gap-2 ${activeTab === 'delivered' ? 'text-green-600 border-b-2 border-green-600' : 'text-gray-400'}`}><CheckCircle size={18} /> Delivered ({deliveredOrders.length})</button>
-          
-          <div className="flex-1"></div> {/* Spacer */}
-          
+          <button onClick={() => setActiveTab('delivered')} className={`pb-4 px-4 font-bold whitespace-nowrap flex items-center gap-2 ${activeTab === 'delivered' ? 'text-green-600 border-b-2 border-green-600' : 'text-gray-400'}`}><CheckCircle size={18} /> Delivered</button>
+          <div className="flex-1"></div>
           <button onClick={() => setActiveTab('add')} className={`pb-4 px-4 font-bold whitespace-nowrap flex items-center gap-2 ${activeTab === 'add' ? 'text-gray-500 border-b-2 border-gray-500' : 'text-gray-400'}`}><Plus size={18} /> Add New</button>
-          <button onClick={() => setActiveTab('manage')} className={`pb-4 px-4 font-bold whitespace-nowrap flex items-center gap-2 ${activeTab === 'manage' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-400'}`}><AlertCircle size={18} /> Manage Stock</button>
+          <button onClick={() => setActiveTab('manage')} className={`pb-4 px-4 font-bold whitespace-nowrap flex items-center gap-2 ${activeTab === 'manage' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-400'}`}><AlertCircle size={18} /> Stock</button>
         </div>
 
         {activeTab !== 'add' && (
@@ -139,9 +145,34 @@ export default function AdminDashboard() {
                 <div><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Price</label><input required type="number" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} className="w-full p-3 border rounded-lg bg-white dark:bg-gray-700 text-black dark:text-white border-gray-300 dark:border-gray-600" /></div>
                 <div><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Category</label><select value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})} className="w-full p-3 border rounded-lg bg-white dark:bg-gray-700 text-black dark:text-white border-gray-300 dark:border-gray-600"><option>National Teams</option><option>Premier League</option><option>La Liga</option><option>Bundesliga</option></select></div>
               </div>
-              <div><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Image URL</label><input type="text" value={newProduct.image} onChange={e => setNewProduct({...newProduct, image: e.target.value})} className="w-full p-3 border rounded-lg bg-white dark:bg-gray-700 text-black dark:text-white border-gray-300 dark:border-gray-600" /></div>
+              
+              {/* IMAGE UPLOAD FIELD */}
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Jersey Image</label>
+                <div className="flex items-center gap-4">
+                  {/* Upload Button */}
+                  <label className="cursor-pointer flex items-center gap-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 px-4 py-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+                    {isUploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
+                    <span className="text-sm font-bold">{isUploading ? "Uploading..." : "Click to Upload Photo"}</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                  </label>
+                  
+                  {/* URL Text Input (Fallback) */}
+                  <div className="flex-1">
+                     <input type="text" placeholder="Or paste URL..." value={newProduct.image} onChange={e => setNewProduct({...newProduct, image: e.target.value})} className="w-full p-3 border rounded-lg bg-white dark:bg-gray-700 text-black dark:text-white border-gray-300 dark:border-gray-600 text-sm" />
+                  </div>
+                </div>
+                {/* PREVIEW */}
+                {newProduct.image && (
+                  <div className="mt-4 w-32 h-32 rounded-lg border border-gray-200 overflow-hidden relative">
+                    <img src={newProduct.image} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center text-white text-xs font-bold">Preview</div>
+                  </div>
+                )}
+              </div>
+
               <div><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Badge</label><input type="text" value={newProduct.badge} onChange={e => setNewProduct({...newProduct, badge: e.target.value})} className="w-full p-3 border rounded-lg bg-white dark:bg-gray-700 text-black dark:text-white border-gray-300 dark:border-gray-600" /></div>
-              <button type="submit" disabled={isAdding} className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition">{isAdding ? "Adding..." : "Launch Product"}</button>
+              <button type="submit" disabled={isAdding || isUploading} className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition">{isAdding ? "Adding..." : "Launch Product"}</button>
             </form>
           </div>
         )}
@@ -165,7 +196,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* --- ORDER LISTS (Pending, Confirmed, Delivered) --- */}
+        {/* --- ORDER LISTS --- */}
         {(activeTab === 'pending' || activeTab === 'confirmed' || activeTab === 'delivered') && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
              {displayedOrders.map((order) => (
@@ -182,38 +213,15 @@ export default function AdminDashboard() {
                     </div>
                     <div className="text-right">
                       <p className="text-xl font-bold text-black dark:text-white">৳ {order.total}</p>
-                      
-                      {/* STATUS LABEL */}
                       <div className="mt-2 mb-3">
-                         <span className={`px-3 py-1 rounded-full text-xs font-bold 
-                           ${order.status === 'Pending' ? 'bg-blue-100 text-blue-800' : 
-                             order.status === 'Approved' ? 'bg-purple-100 text-purple-800' : 
-                             order.status === 'Shipped' ? 'bg-orange-100 text-orange-800' : 
-                             'bg-green-100 text-green-800'}`}>
-                           {order.status}
-                         </span>
+                         <span className={`px-3 py-1 rounded-full text-xs font-bold ${order.status === 'Pending' ? 'bg-blue-100 text-blue-800' : order.status === 'Approved' ? 'bg-purple-100 text-purple-800' : order.status === 'Shipped' ? 'bg-orange-100 text-orange-800' : 'bg-green-100 text-green-800'}`}>{order.status}</span>
                       </div>
-
-                      {/* WORKFLOW BUTTONS */}
                       <div className="flex flex-col gap-2">
-                        {/* 1. NEW ORDER (Pending) -> Approve */}
-                        {order.status === 'Pending' && (
-                          <button onClick={() => updateStatus(order.id, 'Approved')} className="flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700 shadow-sm animate-pulse">
-                            <PhoneIncoming size={16} /> Confirm Order
-                          </button>
-                        )}
-
-                        {/* 2. CONFIRMED ORDER -> Ship OR Done */}
+                        {order.status === 'Pending' && <button onClick={() => updateStatus(order.id, 'Approved')} className="flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700 shadow-sm animate-pulse"><PhoneIncoming size={16} /> Confirm Order</button>}
                         {(order.status === 'Approved' || order.status === 'Shipped') && (
                           <div className="flex gap-2 justify-end">
-                            {order.status !== 'Shipped' && (
-                               <button onClick={() => updateStatus(order.id, 'Shipped')} className="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-blue-700 flex items-center gap-1">
-                                 <Truck size={14}/> Ship
-                               </button>
-                            )}
-                            <button onClick={() => updateStatus(order.id, 'Delivered')} className="bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-green-700 flex items-center gap-1">
-                              <CheckCircle size={14}/> Done
-                            </button>
+                            {order.status !== 'Shipped' && <button onClick={() => updateStatus(order.id, 'Shipped')} className="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-blue-700 flex items-center gap-1"><Truck size={14}/> Ship</button>}
+                            <button onClick={() => updateStatus(order.id, 'Delivered')} className="bg-green-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-green-700 flex items-center gap-1"><CheckCircle size={14}/> Done</button>
                           </div>
                         )}
                       </div>
@@ -221,9 +229,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
              ))}
-             {displayedOrders.length === 0 && <div className="p-12 text-center text-gray-500 dark:text-gray-400">
-                {activeTab === 'pending' ? 'No new orders to call.' : activeTab === 'confirmed' ? 'No orders to pack.' : 'No delivered history.'}
-             </div>}
+             {displayedOrders.length === 0 && <div className="p-12 text-center text-gray-500 dark:text-gray-400">No orders here.</div>}
           </div>
         )}
       </div>
