@@ -1,0 +1,168 @@
+"use client";
+import React, { useState, useEffect } from 'react';
+import { ShoppingBag, Menu, X, Star, Truck, Phone, Trash2, ArrowRight, CheckCircle, Loader2 } from 'lucide-react';
+
+const PRODUCTS = [
+  { id: 1, name: 'Argentina 3 Star Home Jersey', price: 1200, category: 'National Teams', image: 'https://placehold.co/400x500/png?text=ARG+3+Star', badge: 'Fan Favorite' },
+  { id: 2, name: 'Real Madrid Home Kit 24/25', price: 1450, category: 'La Liga', image: 'https://placehold.co/400x500/png?text=Hala+Madrid', badge: 'New Season' },
+  { id: 3, name: 'Man City Home Jersey', price: 1350, category: 'Premier League', image: 'https://placehold.co/400x500/png?text=Man+City', badge: null },
+  { id: 4, name: 'Barcelona Home Kit', price: 1150, category: 'La Liga', image: 'https://placehold.co/400x500/png?text=Barca+Home', badge: 'Sale' },
+  { id: 5, name: 'Arsenal Away Kit', price: 1400, category: 'Premier League', image: 'https://placehold.co/400x500/png?text=Arsenal', badge: null },
+  { id: 6, name: 'Brazil Player Version', price: 1600, category: 'National Teams', image: 'https://placehold.co/400x500/png?text=Brazil', badge: 'Premium' }
+];
+
+const CartDrawer = ({ isOpen, onClose, cartItems, onRemoveItem, clearCart }) => {
+  const [step, setStep] = useState('cart');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderId, setOrderId] = useState(null);
+  const [formData, setFormData] = useState({ name: '', phone: '', address: '', city: 'Dhaka' });
+
+  const total = cartItems.reduce((sum, item) => sum + item.price, 0);
+
+  useEffect(() => { if (!isOpen && step === 'success') { setStep('cart'); setOrderId(null); } }, [isOpen]);
+  const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  const handlePlaceOrder = async () => {
+    if (!formData.name || !formData.phone || !formData.address) { alert("Please fill in all details!"); return; }
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer: formData, items: cartItems, total: total })
+      });
+      const data = await response.json();
+      if (data.success) { setOrderId(data.orderId); setStep('success'); clearCart(); } 
+      else { alert("Something went wrong. Please try again."); }
+    } catch (error) { console.error(error); alert("Network error."); } finally { setIsSubmitting(false); }
+  };
+
+  return (
+    <>
+      {isOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] backdrop-blur-sm transition-opacity" onClick={onClose}></div>}
+      <div className={`fixed inset-y-0 right-0 z-[70] w-full sm:w-96 bg-white shadow-2xl transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="flex flex-col h-full">
+          <div className="flex items-center justify-between p-4 border-b bg-gray-50">
+            <h2 className="text-lg font-bold text-gray-900">{step === 'cart' ? `Your Cart` : step === 'checkout' ? 'Checkout' : 'Order Confirmed'}</h2>
+            <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full"><X size={24} /></button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {step === 'cart' && (
+              <>
+                {cartItems.length === 0 ? <div className="h-full flex flex-col items-center justify-center text-center text-gray-500"><ShoppingBag size={48} className="mb-4 opacity-20" /><p>Your bag is empty.</p></div> : 
+                  <div className="space-y-4">{cartItems.map((item, index) => (<div key={index} className="flex gap-4 border-b border-gray-100 pb-4"><div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border border-gray-200"><img src={item.image} alt={item.name} className="h-full w-full object-cover"/></div><div className="flex flex-1 flex-col"><div className="flex justify-between text-base font-medium text-gray-900"><h3 className="line-clamp-1">{item.name}</h3><p className="ml-4">৳{item.price}</p></div><p className="mt-1 text-sm text-gray-500">Size: {item.selectedSize}</p><button onClick={() => onRemoveItem(index)} className="mt-2 text-sm text-red-600 flex items-center gap-1"><Trash2 size={14} /> Remove</button></div></div>))}</div>
+                }
+              </>
+            )}
+            {step === 'checkout' && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-10 duration-300">
+                <div><label className="block text-sm font-medium text-gray-700">Full Name</label><input type="text" name="name" value={formData.name} onChange={handleInputChange} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black" /></div>
+                <div><label className="block text-sm font-medium text-gray-700">Mobile Number</label><input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black" /></div>
+                <div><label className="block text-sm font-medium text-gray-700">Address</label><textarea name="address" value={formData.address} onChange={handleInputChange} rows={3} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black" /></div>
+                <div><label className="block text-sm font-medium text-gray-700">City</label><select name="city" value={formData.city} onChange={handleInputChange} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"><option>Dhaka</option><option>Chittagong</option><option>Sylhet</option><option>Rajshahi</option><option>Khulna</option></select></div>
+                <div className="bg-blue-50 p-4 rounded-lg mt-4"><div className="flex justify-between text-sm text-blue-700 mb-1"><span>Subtotal</span><span>৳ {total}</span></div><div className="flex justify-between text-sm text-blue-700 font-bold border-t border-blue-200 pt-2 mt-2"><span>Total (COD)</span><span>৳ {total + 60}</span></div></div>
+              </div>
+            )}
+            {step === 'success' && (
+              <div className="h-full flex flex-col items-center justify-center text-center animate-in zoom-in duration-300">
+                <div className="bg-green-100 p-4 rounded-full mb-4"><CheckCircle size={48} className="text-green-600" /></div>
+                <h3 className="text-2xl font-bold text-gray-900">Order Placed!</h3><p className="text-gray-500 mt-2">Thank you, {formData.name}.</p><p className="text-gray-500">Order ID: #{orderId}</p>
+                <div className="bg-gray-50 p-4 rounded-lg mt-6 w-full text-left"><p className="text-sm text-gray-600">We will call you at <b>{formData.phone}</b> shortly to confirm delivery.</p></div>
+                <button onClick={onClose} className="mt-8 bg-black text-white px-6 py-2 rounded-full font-bold">Continue Shopping</button>
+              </div>
+            )}
+          </div>
+          {step !== 'success' && cartItems.length > 0 && (
+            <div className="border-t border-gray-200 p-4 space-y-4 bg-white">
+              {step === 'cart' ? (
+                <><div className="flex justify-between text-base font-medium text-gray-900"><p>Subtotal</p><p>৳ {total}</p></div><button onClick={() => setStep('checkout')} className="w-full flex items-center justify-center rounded-md bg-black px-6 py-3 text-base font-medium text-white hover:bg-gray-800">Checkout <ArrowRight size={20} className="ml-2" /></button></>
+              ) : (
+                <><button onClick={handlePlaceOrder} disabled={isSubmitting} className="w-full flex items-center justify-center rounded-md bg-green-600 px-6 py-3 text-base font-medium text-white hover:bg-green-700 disabled:bg-gray-400">{isSubmitting ? <><Loader2 className="animate-spin mr-2"/> Processing...</> : "Confirm Order"}</button><button onClick={() => setStep('cart')} disabled={isSubmitting} className="w-full text-center text-sm text-gray-600 hover:text-black">Back to Cart</button></>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+};
+
+const ProductModal = ({ product, isOpen, onClose, onConfirm }) => {
+  const [size, setSize] = useState('');
+  if (!isOpen || !product) return null;
+  const handleAddToCart = () => { if (!size) { alert("Please select a size!"); return; } onConfirm(product, size); setSize(''); onClose(); };
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black bg-opacity-75 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="relative bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col md:flex-row animate-in fade-in zoom-in duration-300">
+        <button onClick={onClose} className="absolute top-4 right-4 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100"><X size={20} /></button>
+        <div className="w-full md:w-1/2 bg-gray-100"><img src={product.image} alt={product.name} className="w-full h-64 md:h-full object-cover" /></div>
+        <div className="w-full md:w-1/2 p-6 flex flex-col justify-between">
+          <div><span className="text-sm text-gray-500 uppercase tracking-wider">{product.category}</span><h2 className="text-xl font-bold text-gray-900 mt-1">{product.name}</h2><p className="text-2xl font-bold text-gray-900 mt-2">৳ {product.price}</p><div className="mt-6"><h3 className="text-sm font-medium text-gray-900 mb-3">Select Size</h3><div className="grid grid-cols-3 gap-2">{['M', 'L', 'XL', 'XXL'].map((s) => (<button key={s} onClick={() => setSize(s)} className={`py-2 text-sm font-bold rounded border ${size === s ? 'bg-black text-white border-black' : 'bg-white text-gray-900 border-gray-200 hover:border-black'}`}>{s}</button>))}</div></div></div>
+          <button onClick={handleAddToCart} className="mt-8 w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"><ShoppingBag size={20} /><span>Add to Cart</span></button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Navbar = ({ cartCount, setCategory, onOpenCart }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const handleFilter = (category) => { setCategory(category); setIsOpen(false); };
+  return (
+    <nav className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16 items-center">
+          <div className="flex items-center sm:hidden"><button onClick={() => setIsOpen(!isOpen)} className="text-gray-800">{isOpen ? <X size={24} /> : <Menu size={24} />}</button></div>
+          <div className="flex-shrink-0 flex items-center cursor-pointer" onClick={() => handleFilter('All')}><span className="text-2xl font-extrabold tracking-tighter text-black italic">KICKOFF<span className="text-red-600">.</span>KITS</span></div>
+          <div className="hidden sm:flex space-x-8">
+            <button onClick={() => handleFilter('Premier League')} className="text-gray-600 hover:text-black font-medium">Premier League</button>
+            <button onClick={() => handleFilter('La Liga')} className="text-gray-600 hover:text-black font-medium">La Liga</button>
+            <button onClick={() => handleFilter('Bundesliga')} className="text-gray-600 hover:text-black font-medium">Bundesliga</button>
+            <button onClick={() => handleFilter('National Teams')} className="text-gray-600 hover:text-black font-medium">National Teams</button>
+          </div>
+          <div className="flex items-center"><button onClick={onOpenCart} className="relative p-2 text-gray-800 hover:text-black"><ShoppingBag size={24} />{cartCount > 0 && <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-red-600 rounded-full">{cartCount}</span>}</button></div>
+        </div>
+      </div>
+      {isOpen && <div className="sm:hidden bg-white border-t border-gray-100"><div className="pt-2 pb-4 space-y-1"><button onClick={() => handleFilter('Premier League')} className="block w-full text-left px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">Premier League</button><button onClick={() => handleFilter('La Liga')} className="block w-full text-left px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">La Liga</button><button onClick={() => handleFilter('National Teams')} className="block w-full text-left px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">National Teams</button></div></div>}
+    </nav>
+  );
+};
+
+const ProductCard = ({ product, openQuickView }) => {
+  return (
+    <div className="group relative bg-white border border-gray-100 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300">
+      <div className="aspect-[4/5] bg-gray-200 relative overflow-hidden"><img src={product.image} alt={product.name} className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" />{product.badge && <span className="absolute top-2 left-2 bg-black text-white text-xs font-bold px-2 py-1 uppercase tracking-wider">{product.badge}</span>}</div>
+      <div className="p-4"><h3 className="text-sm text-gray-500">{product.category}</h3><h2 className="text-lg font-semibold text-gray-900 truncate">{product.name}</h2><div className="flex items-center justify-between mt-2"><p className="text-lg font-bold text-gray-900">৳ {product.price}</p><button onClick={() => openQuickView(product)} className="bg-black text-white text-sm px-4 py-2 rounded hover:bg-gray-800 transition-colors">Add</button></div></div>
+    </div>
+  );
+};
+
+export default function ClothingStore() {
+  const [cart, setCart] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false); 
+  const [currentProduct, setCurrentProduct] = useState(null);
+
+  useEffect(() => { const savedCart = localStorage.getItem('kickoff-cart'); if (savedCart) setCart(JSON.parse(savedCart)); }, []);
+  useEffect(() => { localStorage.setItem('kickoff-cart', JSON.stringify(cart)); }, [cart]);
+
+  const openQuickView = (product) => { setCurrentProduct(product); setIsQuickViewOpen(true); };
+  const confirmAddToCart = (product, size) => { setCart([...cart, { ...product, selectedSize: size }]); setIsCartOpen(true); };
+  const removeFromCart = (index) => { setCart(cart.filter((_, i) => i !== index)); };
+  const clearCart = () => { setCart([]); localStorage.removeItem('kickoff-cart'); };
+  const filteredProducts = selectedCategory === 'All' ? PRODUCTS : PRODUCTS.filter(p => p.category === selectedCategory);
+
+  return (
+    <div className="min-h-screen bg-white font-sans text-gray-900">
+      <Navbar cartCount={cart.length} setCategory={setSelectedCategory} onOpenCart={() => setIsCartOpen(true)} />
+      <ProductModal isOpen={isQuickViewOpen} product={currentProduct} onClose={() => setIsQuickViewOpen(false)} onConfirm={confirmAddToCart} />
+      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cartItems={cart} onRemoveItem={removeFromCart} clearCart={clearCart} />
+      <div className="relative bg-gray-900 text-white"><div className="absolute inset-0 bg-gray-800"></div><div className="relative max-w-7xl mx-auto px-4 py-24 sm:px-6 lg:px-8 flex flex-col items-center text-center"><h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-4">WEAR YOUR PASSION</h1><p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-2xl">Premium Player & Fan Version Jerseys. Delivered All Over Bangladesh.</p><button onClick={() => setSelectedCategory('All')} className="bg-white text-black font-bold py-3 px-8 rounded-full hover:bg-gray-200 transition-colors">Shop All Kits</button></div></div>
+      <div className="bg-gray-50 border-y border-gray-100"><div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8"><div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center"><div className="flex items-center justify-center space-x-2"><Truck className="text-red-600" /><span className="font-medium">Nationwide Delivery (Pathao/RedX)</span></div><div className="flex items-center justify-center space-x-2"><Phone className="text-red-600" /><span className="font-medium">Cash On Delivery Available</span></div><div className="flex items-center justify-center space-x-2"><Star className="text-red-600" /><span className="font-medium">Premium Quality Guarantee</span></div></div></div></div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16"><div className="flex items-center justify-between mb-8 border-b pb-4"><h2 className="text-3xl font-bold text-gray-900">{selectedCategory === 'All' ? 'Latest Drops' : selectedCategory}</h2>{selectedCategory !== 'All' && <button onClick={() => setSelectedCategory('All')} className="text-red-600 text-sm font-medium hover:underline">Clear Filter</button>}</div><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">{filteredProducts.map((product) => <ProductCard key={product.id} product={product} openQuickView={openQuickView} />)}</div></main>
+      <footer className="bg-black text-white py-12"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8"><div><h3 className="text-lg font-bold mb-4">About Us</h3><p className="text-gray-400 text-sm">We are a fast-growing clothing brand based in Bangladesh.</p></div><div><h3 className="text-lg font-bold mb-4">Customer Care</h3><ul className="space-y-2 text-sm text-gray-400"><li><a href="#" className="hover:text-white">Track Order</a></li><li><a href="#" className="hover:text-white">Shipping Policy</a></li></ul></div><div><h3 className="text-lg font-bold mb-4">We Accept</h3><div className="flex space-x-4"><span className="bg-gray-800 px-2 py-1 rounded text-xs border border-gray-600">bKash</span><span className="bg-gray-800 px-2 py-1 rounded text-xs border border-gray-600">VISA</span></div></div></div><div className="mt-8 pt-8 border-t border-gray-800 text-center text-sm text-gray-500">© 2026 Kickoff Kits. All rights reserved.</div></footer>
+    </div>
+  );
+}
