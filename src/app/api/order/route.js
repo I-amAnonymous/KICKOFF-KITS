@@ -59,3 +59,37 @@ export async function GET() {
 
   return NextResponse.json({ orders: formattedOrders });
 }
+export async function PUT(request) {
+  try {
+    const body = await request.json();
+    const { id, status } = body;
+
+    // 1. Fetch the existing order to get its current payload
+    const { data: currentOrder, error: fetchError } = await supabase
+      .from('Orders')
+      .select('payload')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // 2. Update the status inside the payload JSON
+    const updatedPayload = {
+      ...currentOrder.payload,
+      status: status
+    };
+
+    // 3. Save it back to the database
+    const { error: updateError } = await supabase
+      .from('Orders')
+      .update({ payload: updatedPayload })
+      .eq('id', id);
+
+    if (updateError) throw updateError;
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Update Error:", error);
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+  }
+}

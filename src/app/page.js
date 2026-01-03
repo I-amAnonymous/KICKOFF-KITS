@@ -1,7 +1,8 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Menu, X, Star, Truck, Phone, Trash2, ArrowRight, CheckCircle, Loader2 } from 'lucide-react';
+import { ShoppingBag, Menu, X, Star, Truck, Phone, Trash2, ArrowRight, CheckCircle, Loader2, Search } from 'lucide-react';
 
+// ... (Data remains the same) ...
 const PRODUCTS = [
   { id: 1, name: 'Argentina 3 Star Home Jersey', price: 1200, category: 'National Teams', image: 'https://placehold.co/400x500/png?text=ARG+3+Star', badge: 'Fan Favorite' },
   { id: 2, name: 'Real Madrid Home Kit 24/25', price: 1450, category: 'La Liga', image: 'https://placehold.co/400x500/png?text=Hala+Madrid', badge: 'New Season' },
@@ -106,7 +107,7 @@ const ProductModal = ({ product, isOpen, onClose, onConfirm }) => {
   );
 };
 
-const Navbar = ({ cartCount, setCategory, onOpenCart }) => {
+const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm }) => {
   const [isOpen, setIsOpen] = useState(false);
   const handleFilter = (category) => { setCategory(category); setIsOpen(false); };
   return (
@@ -115,16 +116,51 @@ const Navbar = ({ cartCount, setCategory, onOpenCart }) => {
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center sm:hidden"><button onClick={() => setIsOpen(!isOpen)} className="text-gray-800">{isOpen ? <X size={24} /> : <Menu size={24} />}</button></div>
           <div className="flex-shrink-0 flex items-center cursor-pointer" onClick={() => handleFilter('All')}><span className="text-2xl font-extrabold tracking-tighter text-black italic">KICKOFF<span className="text-red-600">.</span>KITS</span></div>
+          
+          {/* DESKTOP NAV */}
           <div className="hidden sm:flex space-x-8">
             <button onClick={() => handleFilter('Premier League')} className="text-gray-600 hover:text-black font-medium">Premier League</button>
             <button onClick={() => handleFilter('La Liga')} className="text-gray-600 hover:text-black font-medium">La Liga</button>
-            <button onClick={() => handleFilter('Bundesliga')} className="text-gray-600 hover:text-black font-medium">Bundesliga</button>
             <button onClick={() => handleFilter('National Teams')} className="text-gray-600 hover:text-black font-medium">National Teams</button>
           </div>
-          <div className="flex items-center"><button onClick={onOpenCart} className="relative p-2 text-gray-800 hover:text-black"><ShoppingBag size={24} />{cartCount > 0 && <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-red-600 rounded-full">{cartCount}</span>}</button></div>
+
+          <div className="flex items-center gap-4">
+             {/* SEARCH BAR (NEW) */}
+             <div className="hidden md:flex items-center bg-gray-100 px-3 py-2 rounded-full">
+              <Search size={16} className="text-gray-500"/>
+              <input 
+                type="text" 
+                placeholder="Search jerseys..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="bg-transparent border-none focus:outline-none text-sm ml-2 w-32 md:w-48 placeholder-gray-500"
+              />
+            </div>
+
+            <button onClick={onOpenCart} className="relative p-2 text-gray-800 hover:text-black"><ShoppingBag size={24} />{cartCount > 0 && <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-red-600 rounded-full">{cartCount}</span>}</button>
+          </div>
         </div>
       </div>
-      {isOpen && <div className="sm:hidden bg-white border-t border-gray-100"><div className="pt-2 pb-4 space-y-1"><button onClick={() => handleFilter('Premier League')} className="block w-full text-left px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">Premier League</button><button onClick={() => handleFilter('La Liga')} className="block w-full text-left px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">La Liga</button><button onClick={() => handleFilter('National Teams')} className="block w-full text-left px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">National Teams</button></div></div>}
+      
+      {/* MOBILE MENU */}
+      {isOpen && (
+        <div className="sm:hidden bg-white border-t border-gray-100">
+          <div className="p-4 border-b border-gray-100">
+             <input 
+                type="text" 
+                placeholder="Search jerseys..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-gray-100 px-4 py-2 rounded-lg text-sm focus:outline-none"
+              />
+          </div>
+          <div className="pt-2 pb-4 space-y-1">
+            <button onClick={() => handleFilter('Premier League')} className="block w-full text-left px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">Premier League</button>
+            <button onClick={() => handleFilter('La Liga')} className="block w-full text-left px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">La Liga</button>
+            <button onClick={() => handleFilter('National Teams')} className="block w-full text-left px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">National Teams</button>
+          </div>
+        </div>
+      )}
     </nav>
   );
 };
@@ -141,6 +177,7 @@ const ProductCard = ({ product, openQuickView }) => {
 export default function ClothingStore() {
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [searchTerm, setSearchTerm] = useState(''); // NEW STATE
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false); 
   const [currentProduct, setCurrentProduct] = useState(null);
@@ -152,11 +189,17 @@ export default function ClothingStore() {
   const confirmAddToCart = (product, size) => { setCart([...cart, { ...product, selectedSize: size }]); setIsCartOpen(true); };
   const removeFromCart = (index) => { setCart(cart.filter((_, i) => i !== index)); };
   const clearCart = () => { setCart([]); localStorage.removeItem('kickoff-cart'); };
-  const filteredProducts = selectedCategory === 'All' ? PRODUCTS : PRODUCTS.filter(p => p.category === selectedCategory);
+  
+  // UPDATED FILTERING LOGIC
+  const filteredProducts = PRODUCTS.filter(product => {
+    const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
+    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <div className="min-h-screen bg-white font-sans text-gray-900">
-      <Navbar cartCount={cart.length} setCategory={setSelectedCategory} onOpenCart={() => setIsCartOpen(true)} />
+      <Navbar cartCount={cart.length} setCategory={setSelectedCategory} onOpenCart={() => setIsCartOpen(true)} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
       <ProductModal isOpen={isQuickViewOpen} product={currentProduct} onClose={() => setIsQuickViewOpen(false)} onConfirm={confirmAddToCart} />
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cartItems={cart} onRemoveItem={removeFromCart} clearCart={clearCart} />
       <div className="relative bg-gray-900 text-white"><div className="absolute inset-0 bg-gray-800"></div><div className="relative max-w-7xl mx-auto px-4 py-24 sm:px-6 lg:px-8 flex flex-col items-center text-center"><h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-4">WEAR YOUR PASSION</h1><p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-2xl">Premium Player & Fan Version Jerseys. Delivered All Over Bangladesh.</p><button onClick={() => setSelectedCategory('All')} className="bg-white text-black font-bold py-3 px-8 rounded-full hover:bg-gray-200 transition-colors">Shop All Kits</button></div></div>
