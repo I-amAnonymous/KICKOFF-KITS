@@ -1,68 +1,104 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { PhoneIncoming, CheckSquare, Package, Lock, CheckCircle, Archive, Plus, Search, Tag, Image as ImageIcon, Trash2, Power, AlertCircle, RefreshCw, MapPin, Phone, Truck, Upload, Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase'; 
+import { PhoneIncoming, CheckSquare, Package, Lock, CheckCircle, Archive, Plus, Search, Tag, Image as ImageIcon, Trash2, Power, AlertCircle, RefreshCw, MapPin, Phone, Truck, Upload, Loader2, LogOut, Eye, EyeOff } from 'lucide-react';
 
 export default function AdminDashboard() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [passcode, setPasscode] = useState('');
-  const [error, setError] = useState('');
+  // --- AUTH STATE ---
+  const [session, setSession] = useState(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
   
+  // Login Form State
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // NEW: Toggle state
+
+  // --- DASHBOARD STATE ---
   const [activeTab, setActiveTab] = useState('pending'); 
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingData, setLoadingData] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Forms
   const [newProduct, setNewProduct] = useState({ name: '', price: '', category: 'National Teams', image: '', badge: '' });
   const [isAdding, setIsAdding] = useState(false);
-  const [isUploading, setIsUploading] = useState(false); // New state for upload spinner
+  const [isUploading, setIsUploading] = useState(false);
 
-  // --- ACTIONS ---
-  const handleLogin = (e) => { e.preventDefault(); if (passcode === "admin123") { setIsAuthenticated(true); loadData(); } else { setError("Wrong Passcode"); setPasscode(''); } };
+  // --- 1. CHECK SESSION ON LOAD ---
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoadingAuth(false);
+      if (session) loadData();
+    });
 
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) loadData();
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // --- 2. AUTH ACTIONS ---
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    setAuthError('');
+    
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: password,
+    });
+
+    if (error) {
+      setAuthError(error.message);
+    }
+    setIsLoggingIn(false);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setOrders([]);
+    setProducts([]);
+  };
+
+  // --- DATA LOADING ---
   const loadData = async () => {
-    setLoading(true);
+    setLoadingData(true);
     await Promise.all([fetchOrders(), fetchProducts()]);
-    setLoading(false);
+    setLoadingData(false);
   };
 
   const fetchOrders = async () => { try { const res = await fetch('/api/order', { cache: 'no-store' }); const data = await res.json(); setOrders(data.orders || []); } catch (e) {} };
   const fetchProducts = async () => { try { const res = await fetch('/api/products', { cache: 'no-store' }); const data = await res.json(); setProducts(data || []); } catch (e) {} };
 
+  // --- UTILS ---
   const updateStatus = async (orderId, newStatus) => {
     setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     await fetch('/api/order', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: orderId, status: newStatus }) });
   };
 
-  // --- NEW: IMAGE UPLOAD FUNCTION ---
   const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     setIsUploading(true);
     const formData = new FormData();
     formData.append('file', file);
-
     try {
       const res = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await res.json();
-      if (data.success) {
-        setNewProduct({ ...newProduct, image: data.url }); // Auto-fill the image field
-      } else {
-        alert("Upload failed. Try again.");
-      }
-    } catch (err) {
-      alert("Error uploading image.");
-    } finally {
-      setIsUploading(false);
-    }
+      if (data.success) setNewProduct({ ...newProduct, image: data.url });
+      else alert("Upload failed.");
+    } catch (err) { alert("Error uploading image."); } finally { setIsUploading(false); }
   };
 
   const handleAddProduct = async (e) => {
     e.preventDefault();
     setIsAdding(true);
-    // Use the uploaded image, or a placeholder if they didn't upload one
     const productToSend = { ...newProduct, image: newProduct.image || `https://placehold.co/400x500/png?text=${newProduct.name.replace(/ /g, '+')}` };
     try {
       const res = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(productToSend) });
@@ -95,15 +131,50 @@ export default function AdminDashboard() {
   const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const displayedOrders = activeTab === 'pending' ? pendingOrders : activeTab === 'confirmed' ? confirmedOrders : deliveredOrders;
 
-  if (!isAuthenticated) return (
+  // --- LOGIN SCREEN ---
+  if (loadingAuth) return <div className="min-h-screen flex items-center justify-center bg-gray-900"><Loader2 className="animate-spin text-white" size={48} /></div>;
+
+  if (!session) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 p-4 transition-colors duration-200">
       <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md text-center border border-gray-200 dark:border-gray-700">
         <div className="bg-gray-100 dark:bg-gray-700 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-300 dark:border-gray-600"><Lock className="text-black dark:text-white" size={32} /></div>
-        <h2 className="text-3xl font-extrabold text-black dark:text-white mb-2">Admin Access</h2>
-        <form onSubmit={handleLogin} className="space-y-4 mt-6">
-          <input type="password" placeholder="Passcode" value={passcode} onChange={(e) => setPasscode(e.target.value)} className="w-full text-center text-xl font-bold tracking-widest p-4 rounded-lg bg-white text-black border-2 border-gray-300 dark:bg-gray-700 dark:text-white dark:border-gray-600 focus:border-black dark:focus:border-white focus:outline-none" autoFocus />
-          {error && <p className="text-red-600 dark:text-red-400 text-sm font-bold animate-pulse">{error}</p>}
-          <button type="submit" className="w-full bg-black text-white dark:bg-white dark:text-black py-4 rounded-lg font-bold text-lg hover:bg-gray-800 dark:hover:bg-gray-200 transition">Unlock</button>
+        <h2 className="text-3xl font-extrabold text-black dark:text-white mb-2">Admin Portal</h2>
+        <p className="text-gray-500 mb-6 text-sm">Authorized Personnel Only</p>
+        
+        <form onSubmit={handleLogin} className="space-y-4">
+          <input 
+            type="email" 
+            placeholder="admin@kickoffkits.com" 
+            value={email} 
+            onChange={(e) => setEmail(e.target.value)} 
+            className="w-full p-4 rounded-lg bg-gray-50 text-black border border-gray-300 focus:border-black focus:outline-none" 
+            required
+          />
+          
+          {/* PASSWORD FIELD WITH TOGGLE */}
+          <div className="relative">
+            <input 
+              type={showPassword ? "text" : "password"} // Switches between text and password
+              placeholder="Password" 
+              value={password} 
+              onChange={(e) => setPassword(e.target.value)} 
+              className="w-full p-4 pr-12 rounded-lg bg-gray-50 text-black border border-gray-300 focus:border-black focus:outline-none" 
+              required
+            />
+            <button 
+              type="button" 
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-black transition"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
+          
+          {authError && <div className="bg-red-100 text-red-700 p-3 rounded-lg text-sm font-bold flex items-center gap-2"><AlertCircle size={16}/> {authError}</div>}
+          
+          <button type="submit" disabled={isLoggingIn} className="w-full bg-black text-white py-4 rounded-lg font-bold text-lg hover:bg-gray-800 transition disabled:opacity-50">
+            {isLoggingIn ? "Verifying..." : "Login"}
+          </button>
         </form>
       </div>
     </div>
@@ -116,9 +187,11 @@ export default function AdminDashboard() {
           <h1 className="text-3xl font-extrabold text-black dark:text-white">Admin Dashboard</h1>
           <div className="flex gap-2">
             <button onClick={loadData} className="flex items-center gap-2 bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
-              <RefreshCw size={18} className={loading ? "animate-spin" : ""} /> Refresh
+              <RefreshCw size={18} className={loadingData ? "animate-spin" : ""} /> Refresh
             </button>
-            <button onClick={() => setIsAuthenticated(false)} className="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700">Logout</button>
+            <button onClick={handleLogout} className="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 flex items-center gap-2">
+              <LogOut size={18} /> Logout
+            </button>
           </div>
         </div>
 
@@ -145,32 +218,18 @@ export default function AdminDashboard() {
                 <div><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Price</label><input required type="number" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} className="w-full p-3 border rounded-lg bg-white dark:bg-gray-700 text-black dark:text-white border-gray-300 dark:border-gray-600" /></div>
                 <div><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Category</label><select value={newProduct.category} onChange={e => setNewProduct({...newProduct, category: e.target.value})} className="w-full p-3 border rounded-lg bg-white dark:bg-gray-700 text-black dark:text-white border-gray-300 dark:border-gray-600"><option>National Teams</option><option>Premier League</option><option>La Liga</option><option>Bundesliga</option></select></div>
               </div>
-              
-              {/* IMAGE UPLOAD FIELD */}
               <div>
                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Jersey Image</label>
                 <div className="flex items-center gap-4">
-                  {/* Upload Button */}
                   <label className="cursor-pointer flex items-center gap-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 px-4 py-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition">
                     {isUploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
                     <span className="text-sm font-bold">{isUploading ? "Uploading..." : "Click to Upload Photo"}</span>
                     <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                   </label>
-                  
-                  {/* URL Text Input (Fallback) */}
-                  <div className="flex-1">
-                     <input type="text" placeholder="Or paste URL..." value={newProduct.image} onChange={e => setNewProduct({...newProduct, image: e.target.value})} className="w-full p-3 border rounded-lg bg-white dark:bg-gray-700 text-black dark:text-white border-gray-300 dark:border-gray-600 text-sm" />
-                  </div>
+                  <div className="flex-1"><input type="text" placeholder="Or paste URL..." value={newProduct.image} onChange={e => setNewProduct({...newProduct, image: e.target.value})} className="w-full p-3 border rounded-lg bg-white dark:bg-gray-700 text-black dark:text-white border-gray-300 dark:border-gray-600 text-sm" /></div>
                 </div>
-                {/* PREVIEW */}
-                {newProduct.image && (
-                  <div className="mt-4 w-32 h-32 rounded-lg border border-gray-200 overflow-hidden relative">
-                    <img src={newProduct.image} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center text-white text-xs font-bold">Preview</div>
-                  </div>
-                )}
+                {newProduct.image && (<div className="mt-4 w-32 h-32 rounded-lg border border-gray-200 overflow-hidden relative"><img src={newProduct.image} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center text-white text-xs font-bold">Preview</div></div>)}
               </div>
-
               <div><label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Badge</label><input type="text" value={newProduct.badge} onChange={e => setNewProduct({...newProduct, badge: e.target.value})} className="w-full p-3 border rounded-lg bg-white dark:bg-gray-700 text-black dark:text-white border-gray-300 dark:border-gray-600" /></div>
               <button type="submit" disabled={isAdding || isUploading} className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-700 transition">{isAdding ? "Adding..." : "Launch Product"}</button>
             </form>
