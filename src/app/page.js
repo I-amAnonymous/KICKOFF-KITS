@@ -2,17 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Menu, X, Star, Truck, Phone, Trash2, ArrowRight, CheckCircle, Loader2, Search } from 'lucide-react';
 
-// --- DATA ---
-const PRODUCTS = [
-  { id: 1, name: 'Argentina 3 Star Home Jersey', price: 1200, category: 'National Teams', image: 'https://placehold.co/400x500/png?text=ARG+3+Star', badge: 'Fan Favorite' },
-  { id: 2, name: 'Real Madrid Home Kit 24/25', price: 1450, category: 'La Liga', image: 'https://placehold.co/400x500/png?text=Hala+Madrid', badge: 'New Season' },
-  { id: 3, name: 'Man City Home Jersey', price: 1350, category: 'Premier League', image: 'https://placehold.co/400x500/png?text=Man+City', badge: null },
-  { id: 4, name: 'Barcelona Home Kit', price: 1150, category: 'La Liga', image: 'https://placehold.co/400x500/png?text=Barca+Home', badge: 'Sale' },
-  { id: 5, name: 'Arsenal Away Kit', price: 1400, category: 'Premier League', image: 'https://placehold.co/400x500/png?text=Arsenal', badge: null },
-  { id: 6, name: 'Brazil Player Version', price: 1600, category: 'National Teams', image: 'https://placehold.co/400x500/png?text=Brazil', badge: 'Premium' }
-];
+// --- COMPONENTS (Cart, Modal, etc.) ---
+// (We keep these exactly the same, just condensed for readability)
 
-// --- CART DRAWER COMPONENT ---
 const CartDrawer = ({ isOpen, onClose, cartItems, onRemoveItem, clearCart }) => {
   const [step, setStep] = useState('cart');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -89,7 +81,6 @@ const CartDrawer = ({ isOpen, onClose, cartItems, onRemoveItem, clearCart }) => 
   );
 };
 
-// --- PRODUCT QUICK VIEW MODAL ---
 const ProductModal = ({ product, isOpen, onClose, onConfirm }) => {
   const [size, setSize] = useState('');
   if (!isOpen || !product) return null;
@@ -109,15 +100,9 @@ const ProductModal = ({ product, isOpen, onClose, onConfirm }) => {
   );
 };
 
-// --- NAVBAR WITH SEARCH DROPDOWN ---
 const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm, products, onProductClick }) => {
   const [isOpen, setIsOpen] = useState(false);
-  
-  // Filter products for the dropdown
-  const filteredSearch = products.filter(p => 
-    searchTerm && p.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
+  const filteredSearch = products.filter(p => searchTerm && p.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const handleFilter = (category) => { setCategory(category); setIsOpen(false); };
 
   return (
@@ -126,77 +111,42 @@ const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm,
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center sm:hidden"><button onClick={() => setIsOpen(!isOpen)} className="text-gray-800">{isOpen ? <X size={24} /> : <Menu size={24} />}</button></div>
           <div className="flex-shrink-0 flex items-center cursor-pointer" onClick={() => handleFilter('All')}><span className="text-2xl font-extrabold tracking-tighter text-black italic">KICKOFF<span className="text-red-600">.</span>KITS</span></div>
-          
           <div className="hidden sm:flex space-x-8">
             <button onClick={() => handleFilter('Premier League')} className="text-gray-600 hover:text-black font-medium">Premier League</button>
             <button onClick={() => handleFilter('La Liga')} className="text-gray-600 hover:text-black font-medium">La Liga</button>
             <button onClick={() => handleFilter('National Teams')} className="text-gray-600 hover:text-black font-medium">National Teams</button>
           </div>
-
           <div className="flex items-center gap-4">
-             {/* SEARCH BAR (DESKTOP) WITH DROPDOWN */}
              <div className="hidden md:block relative">
                <div className="flex items-center bg-gray-100 px-3 py-2 rounded-full">
                 <Search size={16} className="text-gray-500"/>
-                <input 
-                  type="text" 
-                  placeholder="Search jerseys..." 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="bg-transparent border-none focus:outline-none text-sm ml-2 w-32 md:w-48 placeholder-gray-500"
-                />
+                <input type="text" placeholder="Search jerseys..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-transparent border-none focus:outline-none text-sm ml-2 w-32 md:w-48 placeholder-gray-500"/>
               </div>
-              
-              {/* SEARCH DROPDOWN POPUP */}
               {searchTerm && filteredSearch.length > 0 && (
                 <div className="absolute top-full left-0 w-64 bg-white shadow-xl rounded-xl border border-gray-100 mt-2 overflow-hidden z-[60]">
                   {filteredSearch.map(product => (
-                    <div 
-                      key={product.id} 
-                      onClick={() => { onProductClick(product); setSearchTerm(''); }}
-                      className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors"
-                    >
+                    <div key={product.id} onClick={() => { onProductClick(product); setSearchTerm(''); }} className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors">
                       <img src={product.image} className="w-10 h-10 object-cover rounded bg-gray-100" />
-                      <div>
-                        <p className="text-sm font-bold text-gray-900 line-clamp-1">{product.name}</p>
-                        <p className="text-xs text-gray-500">৳ {product.price}</p>
-                      </div>
+                      <div><p className="text-sm font-bold text-gray-900 line-clamp-1">{product.name}</p><p className="text-xs text-gray-500">৳ {product.price}</p></div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-
             <button onClick={onOpenCart} className="relative p-2 text-gray-800 hover:text-black"><ShoppingBag size={24} />{cartCount > 0 && <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-red-600 rounded-full">{cartCount}</span>}</button>
           </div>
         </div>
       </div>
-      
-      {/* MOBILE MENU */}
       {isOpen && (
         <div className="sm:hidden bg-white border-t border-gray-100 relative">
           <div className="p-4 border-b border-gray-100">
-             <input 
-                type="text" 
-                placeholder="Search jerseys..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-gray-100 px-4 py-2 rounded-lg text-sm focus:outline-none"
-              />
-              {/* MOBILE SEARCH DROPDOWN */}
+             <input type="text" placeholder="Search jerseys..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-gray-100 px-4 py-2 rounded-lg text-sm focus:outline-none"/>
               {searchTerm && filteredSearch.length > 0 && (
                 <div className="absolute left-4 right-4 bg-white shadow-xl rounded-xl border border-gray-100 mt-2 z-[60]">
                   {filteredSearch.map(product => (
-                    <div 
-                      key={product.id} 
-                      onClick={() => { onProductClick(product); setSearchTerm(''); setIsOpen(false); }}
-                      className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0"
-                    >
+                    <div key={product.id} onClick={() => { onProductClick(product); setSearchTerm(''); setIsOpen(false); }} className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0">
                       <img src={product.image} className="w-10 h-10 object-cover rounded bg-gray-100" />
-                      <div>
-                        <p className="text-sm font-bold text-gray-900">{product.name}</p>
-                        <p className="text-xs text-gray-500">৳ {product.price}</p>
-                      </div>
+                      <div><p className="text-sm font-bold text-gray-900">{product.name}</p><p className="text-xs text-gray-500">৳ {product.price}</p></div>
                     </div>
                   ))}
                 </div>
@@ -222,6 +172,7 @@ const ProductCard = ({ product, openQuickView }) => {
   );
 };
 
+// --- MAIN PAGE (Dynamic Data Fetching) ---
 export default function ClothingStore() {
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -229,6 +180,29 @@ export default function ClothingStore() {
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false); 
   const [currentProduct, setCurrentProduct] = useState(null);
+
+  // NEW: State for Dynamic Products
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // NEW: Fetch products from Supabase on load
+  useEffect(() => {
+    async function fetchProducts() {
+      try {
+        const res = await fetch('/api/products');
+        const data = await res.json();
+        // If the database is empty or error, data might be { error: ... }
+        if (Array.isArray(data)) {
+          setProducts(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch products");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProducts();
+  }, []);
 
   useEffect(() => { const savedCart = localStorage.getItem('kickoff-cart'); if (savedCart) setCart(JSON.parse(savedCart)); }, []);
   useEffect(() => { localStorage.setItem('kickoff-cart', JSON.stringify(cart)); }, [cart]);
@@ -238,7 +212,7 @@ export default function ClothingStore() {
   const removeFromCart = (index) => { setCart(cart.filter((_, i) => i !== index)); };
   const clearCart = () => { setCart([]); localStorage.removeItem('kickoff-cart'); };
   
-  const filteredProducts = PRODUCTS.filter(product => {
+  const filteredProducts = products.filter(product => {
     const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCategory && matchesSearch;
@@ -246,21 +220,29 @@ export default function ClothingStore() {
 
   return (
     <div className="min-h-screen bg-white font-sans text-gray-900">
-      {/* Updated Navbar with Search Dropdown Props */}
       <Navbar 
         cartCount={cart.length} 
         setCategory={setSelectedCategory} 
         onOpenCart={() => setIsCartOpen(true)} 
         searchTerm={searchTerm} 
         setSearchTerm={setSearchTerm}
-        products={PRODUCTS}
+        products={products}
         onProductClick={openQuickView} 
       />
       <ProductModal isOpen={isQuickViewOpen} product={currentProduct} onClose={() => setIsQuickViewOpen(false)} onConfirm={confirmAddToCart} />
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cartItems={cart} onRemoveItem={removeFromCart} clearCart={clearCart} />
       <div className="relative bg-gray-900 text-white"><div className="absolute inset-0 bg-gray-800"></div><div className="relative max-w-7xl mx-auto px-4 py-24 sm:px-6 lg:px-8 flex flex-col items-center text-center"><h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-4">WEAR YOUR PASSION</h1><p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-2xl">Premium Player & Fan Version Jerseys. Delivered All Over Bangladesh.</p><button onClick={() => setSelectedCategory('All')} className="bg-white text-black font-bold py-3 px-8 rounded-full hover:bg-gray-200 transition-colors">Shop All Kits</button></div></div>
       <div className="bg-gray-50 border-y border-gray-100"><div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8"><div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center"><div className="flex items-center justify-center space-x-2"><Truck className="text-red-600" /><span className="font-medium">Nationwide Delivery (Pathao/RedX)</span></div><div className="flex items-center justify-center space-x-2"><Phone className="text-red-600" /><span className="font-medium">Cash On Delivery Available</span></div><div className="flex items-center justify-center space-x-2"><Star className="text-red-600" /><span className="font-medium">Premium Quality Guarantee</span></div></div></div></div>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16"><div className="flex items-center justify-between mb-8 border-b pb-4"><h2 className="text-3xl font-bold text-gray-900">{selectedCategory === 'All' ? 'Latest Drops' : selectedCategory}</h2>{selectedCategory !== 'All' && <button onClick={() => setSelectedCategory('All')} className="text-red-600 text-sm font-medium hover:underline">Clear Filter</button>}</div><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">{filteredProducts.map((product) => <ProductCard key={product.id} product={product} openQuickView={openQuickView} />)}</div></main>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="flex items-center justify-between mb-8 border-b pb-4"><h2 className="text-3xl font-bold text-gray-900">{selectedCategory === 'All' ? 'Latest Drops' : selectedCategory}</h2>{selectedCategory !== 'All' && <button onClick={() => setSelectedCategory('All')} className="text-red-600 text-sm font-medium hover:underline">Clear Filter</button>}</div>
+        
+        {/* NEW: Loading State */}
+        {loading ? (
+          <div className="text-center py-20 text-gray-500">Loading products from cloud...</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">{filteredProducts.map((product) => <ProductCard key={product.id} product={product} openQuickView={openQuickView} />)}</div>
+        )}
+      </main>
       <footer className="bg-black text-white py-12"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8"><div><h3 className="text-lg font-bold mb-4">About Us</h3><p className="text-gray-400 text-sm">We are a fast-growing clothing brand based in Bangladesh.</p></div><div><h3 className="text-lg font-bold mb-4">Customer Care</h3><ul className="space-y-2 text-sm text-gray-400"><li><a href="#" className="hover:text-white">Track Order</a></li><li><a href="#" className="hover:text-white">Shipping Policy</a></li></ul></div><div><h3 className="text-lg font-bold mb-4">We Accept</h3><div className="flex space-x-4"><span className="bg-gray-800 px-2 py-1 rounded text-xs border border-gray-600">bKash</span><span className="bg-gray-800 px-2 py-1 rounded text-xs border border-gray-600">VISA</span></div></div></div><div className="mt-8 pt-8 border-t border-gray-800 text-center text-sm text-gray-500">© 2026 Kickoff Kits. All rights reserved.</div></footer>
     </div>
   );
