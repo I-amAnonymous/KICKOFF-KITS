@@ -1,22 +1,23 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase'; 
-import { PhoneIncoming, CheckSquare, Package, Lock, CheckCircle, Archive, Plus, Search, Tag, Image as ImageIcon, Trash2, Power, AlertCircle, RefreshCw, MapPin, Phone, Truck, Upload, Loader2, LogOut, Eye, EyeOff } from 'lucide-react';
+import { PhoneIncoming, CheckSquare, Package, Lock, CheckCircle, Archive, Plus, Search, Tag, Image as ImageIcon, Trash2, Power, AlertCircle, RefreshCw, MapPin, Phone, Truck, Upload, Loader2, LogOut, Eye, EyeOff, BarChart3, TrendingUp, DollarSign, ShoppingBag } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 export default function AdminDashboard() {
   // --- AUTH STATE ---
   const [session, setSession] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
   
-  // Login Form State
+  // Login Form
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [showPassword, setShowPassword] = useState(false); // NEW: Toggle state
+  const [showPassword, setShowPassword] = useState(false);
 
   // --- DASHBOARD STATE ---
-  const [activeTab, setActiveTab] = useState('pending'); 
+  const [activeTab, setActiveTab] = useState('overview'); // NEW DEFAULT: 'overview'
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
@@ -34,12 +35,10 @@ export default function AdminDashboard() {
       setLoadingAuth(false);
       if (session) loadData();
     });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) loadData();
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
@@ -48,15 +47,8 @@ export default function AdminDashboard() {
     e.preventDefault();
     setIsLoggingIn(true);
     setAuthError('');
-    
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email,
-      password: password,
-    });
-
-    if (error) {
-      setAuthError(error.message);
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setAuthError(error.message);
     setIsLoggingIn(false);
   };
 
@@ -119,6 +111,25 @@ export default function AdminDashboard() {
     try { await fetch(`/api/products?id=${id}`, { method: 'DELETE' }); } catch (err) { fetchProducts(); }
   };
 
+  // --- ANALYTICS LOGIC ---
+  const calculateStats = () => {
+    const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const pendingCount = orders.filter(o => o.status === 'Pending').length;
+    const deliveredCount = orders.filter(o => o.status === 'Delivered').length;
+    
+    // Chart Data (Group by status for simplicity, or mock dates if no date field exists yet)
+    const chartData = [
+      { name: 'Pending', value: orders.filter(o => o.status === 'Pending').reduce((s, o) => s + o.total, 0) },
+      { name: 'Approved', value: orders.filter(o => o.status === 'Approved').reduce((s, o) => s + o.total, 0) },
+      { name: 'Shipped', value: orders.filter(o => o.status === 'Shipped').reduce((s, o) => s + o.total, 0) },
+      { name: 'Delivered', value: orders.filter(o => o.status === 'Delivered').reduce((s, o) => s + o.total, 0) },
+    ];
+
+    return { totalRevenue, pendingCount, deliveredCount, chartData };
+  };
+
+  const stats = calculateStats();
+
   const filterList = (list) => {
     if (!searchTerm) return list;
     const s = searchTerm.toLowerCase();
@@ -139,42 +150,14 @@ export default function AdminDashboard() {
       <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md text-center border border-gray-200 dark:border-gray-700">
         <div className="bg-gray-100 dark:bg-gray-700 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-gray-300 dark:border-gray-600"><Lock className="text-black dark:text-white" size={32} /></div>
         <h2 className="text-3xl font-extrabold text-black dark:text-white mb-2">Admin Portal</h2>
-        <p className="text-gray-500 mb-6 text-sm">Authorized Personnel Only</p>
-        
-        <form onSubmit={handleLogin} className="space-y-4">
-          <input 
-            type="email" 
-            placeholder="admin@kickoffkits.com" 
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)} 
-            className="w-full p-4 rounded-lg bg-gray-50 text-black border border-gray-300 focus:border-black focus:outline-none" 
-            required
-          />
-          
-          {/* PASSWORD FIELD WITH TOGGLE */}
+        <form onSubmit={handleLogin} className="space-y-4 mt-6">
+          <input type="email" placeholder="admin@kickoffkits.com" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-4 rounded-lg bg-gray-50 text-black border border-gray-300 focus:border-black focus:outline-none" required />
           <div className="relative">
-            <input 
-              type={showPassword ? "text" : "password"} // Switches between text and password
-              placeholder="Password" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-              className="w-full p-4 pr-12 rounded-lg bg-gray-50 text-black border border-gray-300 focus:border-black focus:outline-none" 
-              required
-            />
-            <button 
-              type="button" 
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-black transition"
-            >
-              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-            </button>
+            <input type={showPassword ? "text" : "password"} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full p-4 pr-12 rounded-lg bg-gray-50 text-black border border-gray-300 focus:border-black focus:outline-none" required />
+            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-black transition">{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>
           </div>
-          
           {authError && <div className="bg-red-100 text-red-700 p-3 rounded-lg text-sm font-bold flex items-center gap-2"><AlertCircle size={16}/> {authError}</div>}
-          
-          <button type="submit" disabled={isLoggingIn} className="w-full bg-black text-white py-4 rounded-lg font-bold text-lg hover:bg-gray-800 transition disabled:opacity-50">
-            {isLoggingIn ? "Verifying..." : "Login"}
-          </button>
+          <button type="submit" disabled={isLoggingIn} className="w-full bg-black text-white py-4 rounded-lg font-bold text-lg hover:bg-gray-800 transition disabled:opacity-50">{isLoggingIn ? "Verifying..." : "Login"}</button>
         </form>
       </div>
     </div>
@@ -186,26 +169,68 @@ export default function AdminDashboard() {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-extrabold text-black dark:text-white">Admin Dashboard</h1>
           <div className="flex gap-2">
-            <button onClick={loadData} className="flex items-center gap-2 bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
-              <RefreshCw size={18} className={loadingData ? "animate-spin" : ""} /> Refresh
-            </button>
-            <button onClick={handleLogout} className="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 flex items-center gap-2">
-              <LogOut size={18} /> Logout
-            </button>
+            <button onClick={loadData} className="flex items-center gap-2 bg-white dark:bg-gray-800 text-black dark:text-white border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium"><RefreshCw size={18} className={loadingData ? "animate-spin" : ""} /> Refresh</button>
+            <button onClick={handleLogout} className="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 flex items-center gap-2"><LogOut size={18} /> Logout</button>
           </div>
         </div>
 
         <div className="flex gap-4 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+          {/* NEW OVERVIEW TAB */}
+          <button onClick={() => setActiveTab('overview')} className={`pb-4 px-4 font-bold whitespace-nowrap flex items-center gap-2 ${activeTab === 'overview' ? 'text-black dark:text-white border-b-2 border-black dark:border-white' : 'text-gray-400'}`}><BarChart3 size={18} /> Overview</button>
+          
           <button onClick={() => setActiveTab('pending')} className={`pb-4 px-4 font-bold whitespace-nowrap flex items-center gap-2 ${activeTab === 'pending' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-400'}`}><PhoneIncoming size={18} /> New ({pendingOrders.length})</button>
-          <button onClick={() => setActiveTab('confirmed')} className={`pb-4 px-4 font-bold whitespace-nowrap flex items-center gap-2 ${activeTab === 'confirmed' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'}`}><CheckSquare size={18} /> Confirmed ({confirmedOrders.length})</button>
+          <button onClick={() => setActiveTab('confirmed')} className={`pb-4 px-4 font-bold whitespace-nowrap flex items-center gap-2 ${activeTab === 'confirmed' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'}`}><CheckSquare size={18} /> Confirmed</button>
           <button onClick={() => setActiveTab('delivered')} className={`pb-4 px-4 font-bold whitespace-nowrap flex items-center gap-2 ${activeTab === 'delivered' ? 'text-green-600 border-b-2 border-green-600' : 'text-gray-400'}`}><CheckCircle size={18} /> Delivered</button>
           <div className="flex-1"></div>
           <button onClick={() => setActiveTab('add')} className={`pb-4 px-4 font-bold whitespace-nowrap flex items-center gap-2 ${activeTab === 'add' ? 'text-gray-500 border-b-2 border-gray-500' : 'text-gray-400'}`}><Plus size={18} /> Add New</button>
           <button onClick={() => setActiveTab('manage')} className={`pb-4 px-4 font-bold whitespace-nowrap flex items-center gap-2 ${activeTab === 'manage' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-400'}`}><AlertCircle size={18} /> Stock</button>
         </div>
 
-        {activeTab !== 'add' && (
-          <div className="mb-6 relative"><Search className="absolute left-3 top-3 text-gray-400" size={20} /><input type="text" placeholder={activeTab === 'manage' ? "Search products..." : "Search orders..."} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white" /></div>
+        {activeTab !== 'add' && activeTab !== 'overview' && (
+          <div className="mb-6 relative"><Search className="absolute left-3 top-3 text-gray-400" size={20} /><input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white" /></div>
+        )}
+
+        {/* --- OVERVIEW TAB CONTENT (NEW) --- */}
+        {activeTab === 'overview' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* 1. STAT CARDS */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg"><DollarSign className="text-green-700 dark:text-green-300" size={24} /></div>
+                  <div><p className="text-sm text-gray-500 dark:text-gray-400 font-bold">Total Revenue</p><h3 className="text-2xl font-extrabold text-black dark:text-white">৳ {stats.totalRevenue}</h3></div>
+                </div>
+              </div>
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg"><PhoneIncoming className="text-blue-700 dark:text-blue-300" size={24} /></div>
+                  <div><p className="text-sm text-gray-500 dark:text-gray-400 font-bold">Pending Calls</p><h3 className="text-2xl font-extrabold text-black dark:text-white">{stats.pendingCount}</h3></div>
+                </div>
+              </div>
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg"><ShoppingBag className="text-purple-700 dark:text-purple-300" size={24} /></div>
+                  <div><p className="text-sm text-gray-500 dark:text-gray-400 font-bold">Delivered Orders</p><h3 className="text-2xl font-extrabold text-black dark:text-white">{stats.deliveredCount}</h3></div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. CHART */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-bold mb-6 text-black dark:text-white flex items-center gap-2"><TrendingUp size={20}/> Revenue by Status</h3>
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={stats.chartData}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                    <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `৳${value}`} />
+                    <Tooltip contentStyle={{ backgroundColor: '#000', color: '#fff', borderRadius: '8px' }} itemStyle={{ color: '#fff' }} />
+                    <Bar dataKey="value" fill="#000000" radius={[4, 4, 0, 0]} barSize={50} className="fill-black dark:fill-white" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* --- ADD PRODUCT TAB --- */}
