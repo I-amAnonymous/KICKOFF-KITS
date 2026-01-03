@@ -1,9 +1,8 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Menu, X, Star, Truck, Phone, Trash2, ArrowRight, CheckCircle, Loader2, Search } from 'lucide-react';
+import { ShoppingBag, Menu, X, Star, Truck, Phone, Trash2, ArrowRight, CheckCircle, Loader2, Search, AlertCircle } from 'lucide-react';
 
-// --- COMPONENTS (Cart, Modal, etc.) ---
-// (We keep these exactly the same, just condensed for readability)
+// --- COMPONENTS ---
 
 const CartDrawer = ({ isOpen, onClose, cartItems, onRemoveItem, clearCart }) => {
   const [step, setStep] = useState('cart');
@@ -81,25 +80,66 @@ const CartDrawer = ({ isOpen, onClose, cartItems, onRemoveItem, clearCart }) => 
   );
 };
 
+// --- UPDATED PRODUCT MODAL (Handles Stock) ---
 const ProductModal = ({ product, isOpen, onClose, onConfirm }) => {
   const [size, setSize] = useState('');
   if (!isOpen || !product) return null;
+  
+  // Logic for Stock
+  const isOutOfStock = product.in_stock === false;
+
   const handleAddToCart = () => { if (!size) { alert("Please select a size!"); return; } onConfirm(product, size); setSize(''); onClose(); };
+  
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black bg-opacity-75 backdrop-blur-sm" onClick={onClose}></div>
       <div className="relative bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col md:flex-row animate-in fade-in zoom-in duration-300">
         <button onClick={onClose} className="absolute top-4 right-4 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100"><X size={20} /></button>
-        <div className="w-full md:w-1/2 bg-gray-100"><img src={product.image} alt={product.name} className="w-full h-64 md:h-full object-cover" /></div>
+        <div className="w-full md:w-1/2 bg-gray-100 relative">
+          <img src={product.image} alt={product.name} className={`w-full h-64 md:h-full object-cover ${isOutOfStock ? 'grayscale opacity-75' : ''}`} />
+          {isOutOfStock && <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-10"><span className="bg-red-600 text-white font-bold px-4 py-2 text-lg transform -rotate-12 shadow-lg border-2 border-white">SOLD OUT</span></div>}
+        </div>
         <div className="w-full md:w-1/2 p-6 flex flex-col justify-between">
-          <div><span className="text-sm text-gray-500 uppercase tracking-wider">{product.category}</span><h2 className="text-xl font-bold text-gray-900 mt-1">{product.name}</h2><p className="text-2xl font-bold text-gray-900 mt-2">৳ {product.price}</p><div className="mt-6"><h3 className="text-sm font-medium text-gray-900 mb-3">Select Size</h3><div className="grid grid-cols-3 gap-2">{['M', 'L', 'XL', 'XXL'].map((s) => (<button key={s} onClick={() => setSize(s)} className={`py-2 text-sm font-bold rounded border ${size === s ? 'bg-black text-white border-black' : 'bg-white text-gray-900 border-gray-200 hover:border-black'}`}>{s}</button>))}</div></div></div>
-          <button onClick={handleAddToCart} className="mt-8 w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"><ShoppingBag size={20} /><span>Add to Cart</span></button>
+          <div>
+            <span className="text-sm text-gray-500 uppercase tracking-wider">{product.category}</span>
+            <h2 className="text-xl font-bold text-gray-900 mt-1">{product.name}</h2>
+            <p className="text-2xl font-bold text-gray-900 mt-2">৳ {product.price}</p>
+            
+            {/* Size Selector - Disable if OOS */}
+            <div className="mt-6">
+              <h3 className="text-sm font-medium text-gray-900 mb-3">Select Size</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {['M', 'L', 'XL', 'XXL'].map((s) => (
+                  <button 
+                    key={s} 
+                    onClick={() => !isOutOfStock && setSize(s)} 
+                    disabled={isOutOfStock}
+                    className={`py-2 text-sm font-bold rounded border ${size === s ? 'bg-black text-white border-black' : 'bg-white text-gray-900 border-gray-200'} ${isOutOfStock ? 'opacity-50 cursor-not-allowed' : 'hover:border-black'}`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          {/* Action Button */}
+          {isOutOfStock ? (
+            <button disabled className="mt-8 w-full bg-gray-200 text-gray-500 font-bold py-3 rounded-lg cursor-not-allowed flex items-center justify-center gap-2">
+              <AlertCircle size={20} /> Out of Stock
+            </button>
+          ) : (
+            <button onClick={handleAddToCart} className="mt-8 w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2">
+              <ShoppingBag size={20} /><span>Add to Cart</span>
+            </button>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
+// --- NAVBAR ---
 const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm, products, onProductClick }) => {
   const [isOpen, setIsOpen] = useState(false);
   const filteredSearch = products.filter(p => searchTerm && p.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -126,8 +166,14 @@ const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm,
                 <div className="absolute top-full left-0 w-64 bg-white shadow-xl rounded-xl border border-gray-100 mt-2 overflow-hidden z-[60]">
                   {filteredSearch.map(product => (
                     <div key={product.id} onClick={() => { onProductClick(product); setSearchTerm(''); }} className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors">
-                      <img src={product.image} className="w-10 h-10 object-cover rounded bg-gray-100" />
-                      <div><p className="text-sm font-bold text-gray-900 line-clamp-1">{product.name}</p><p className="text-xs text-gray-500">৳ {product.price}</p></div>
+                      <img src={product.image} className={`w-10 h-10 object-cover rounded bg-gray-100 ${product.in_stock === false ? 'grayscale' : ''}`} />
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-gray-900 line-clamp-1">{product.name}</p>
+                        <div className="flex justify-between items-center">
+                            <p className="text-xs text-gray-500">৳ {product.price}</p>
+                            {product.in_stock === false && <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1 rounded">SOLD OUT</span>}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -137,6 +183,7 @@ const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm,
           </div>
         </div>
       </div>
+      {/* Mobile Menu */}
       {isOpen && (
         <div className="sm:hidden bg-white border-t border-gray-100 relative">
           <div className="p-4 border-b border-gray-100">
@@ -163,16 +210,43 @@ const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm,
   );
 };
 
+// --- UPDATED PRODUCT CARD (Handles Stock) ---
+import Link from 'next/link'; // Add this line at the very top of page.js if missing!
+
 const ProductCard = ({ product, openQuickView }) => {
+  const isOutOfStock = product.in_stock === false;
+
   return (
-    <div className="group relative bg-white border border-gray-100 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300">
-      <div className="aspect-[4/5] bg-gray-200 relative overflow-hidden"><img src={product.image} alt={product.name} className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" />{product.badge && <span className="absolute top-2 left-2 bg-black text-white text-xs font-bold px-2 py-1 uppercase tracking-wider">{product.badge}</span>}</div>
-      <div className="p-4"><h3 className="text-sm text-gray-500">{product.category}</h3><h2 className="text-lg font-semibold text-gray-900 truncate">{product.name}</h2><div className="flex items-center justify-between mt-2"><p className="text-lg font-bold text-gray-900">৳ {product.price}</p><button onClick={() => openQuickView(product)} className="bg-black text-white text-sm px-4 py-2 rounded hover:bg-gray-800 transition-colors">Add</button></div></div>
+    <div className={`group relative bg-white border border-gray-100 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300 ${isOutOfStock ? 'opacity-80' : ''}`}>
+      {/* Make the Image Link to the Details Page */}
+      <Link href={`/product/${product.id}`} className="block aspect-[4/5] bg-gray-200 relative overflow-hidden cursor-pointer">
+        <img src={product.image} alt={product.name} className={`object-cover w-full h-full group-hover:scale-105 transition-transform duration-500 ${isOutOfStock ? 'grayscale' : ''}`} />
+        {product.badge && !isOutOfStock && <span className="absolute top-2 left-2 bg-black text-white text-xs font-bold px-2 py-1 uppercase tracking-wider">{product.badge}</span>}
+        {isOutOfStock && <span className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 uppercase tracking-wider shadow-sm">Sold Out</span>}
+      </Link>
+      
+      <div className="p-4">
+        <h3 className="text-sm text-gray-500">{product.category}</h3>
+        
+        {/* Make the Title Link to the Details Page */}
+        <Link href={`/product/${product.id}`}>
+          <h2 className="text-lg font-semibold text-gray-900 truncate hover:text-red-600 transition-colors">{product.name}</h2>
+        </Link>
+        
+        <div className="flex items-center justify-between mt-2">
+          <p className="text-lg font-bold text-gray-900">৳ {product.price}</p>
+          
+          {isOutOfStock ? (
+            <button disabled className="bg-gray-200 text-gray-500 text-sm px-4 py-2 rounded font-bold cursor-not-allowed">Sold Out</button>
+          ) : (
+             <button onClick={() => openQuickView(product)} className="bg-black text-white text-sm px-4 py-2 rounded hover:bg-gray-800 transition-colors">Add</button>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
 
-// --- MAIN PAGE (Dynamic Data Fetching) ---
 export default function ClothingStore() {
   const [cart, setCart] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -181,25 +255,16 @@ export default function ClothingStore() {
   const [isCartOpen, setIsCartOpen] = useState(false); 
   const [currentProduct, setCurrentProduct] = useState(null);
 
-  // NEW: State for Dynamic Products
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // NEW: Fetch products from Supabase on load
   useEffect(() => {
     async function fetchProducts() {
       try {
         const res = await fetch('/api/products');
         const data = await res.json();
-        // If the database is empty or error, data might be { error: ... }
-        if (Array.isArray(data)) {
-          setProducts(data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch products");
-      } finally {
-        setLoading(false);
-      }
+        if (Array.isArray(data)) { setProducts(data); }
+      } catch (err) { console.error("Failed to fetch products"); } finally { setLoading(false); }
     }
     fetchProducts();
   }, []);
@@ -220,23 +285,16 @@ export default function ClothingStore() {
 
   return (
     <div className="min-h-screen bg-white font-sans text-gray-900">
-      <Navbar 
-        cartCount={cart.length} 
-        setCategory={setSelectedCategory} 
-        onOpenCart={() => setIsCartOpen(true)} 
-        searchTerm={searchTerm} 
-        setSearchTerm={setSearchTerm}
-        products={products}
-        onProductClick={openQuickView} 
-      />
+      <Navbar cartCount={cart.length} setCategory={setSelectedCategory} onOpenCart={() => setIsCartOpen(true)} searchTerm={searchTerm} setSearchTerm={setSearchTerm} products={products} onProductClick={openQuickView} />
       <ProductModal isOpen={isQuickViewOpen} product={currentProduct} onClose={() => setIsQuickViewOpen(false)} onConfirm={confirmAddToCart} />
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cartItems={cart} onRemoveItem={removeFromCart} clearCart={clearCart} />
+      
       <div className="relative bg-gray-900 text-white"><div className="absolute inset-0 bg-gray-800"></div><div className="relative max-w-7xl mx-auto px-4 py-24 sm:px-6 lg:px-8 flex flex-col items-center text-center"><h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-4">WEAR YOUR PASSION</h1><p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-2xl">Premium Player & Fan Version Jerseys. Delivered All Over Bangladesh.</p><button onClick={() => setSelectedCategory('All')} className="bg-white text-black font-bold py-3 px-8 rounded-full hover:bg-gray-200 transition-colors">Shop All Kits</button></div></div>
       <div className="bg-gray-50 border-y border-gray-100"><div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8"><div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center"><div className="flex items-center justify-center space-x-2"><Truck className="text-red-600" /><span className="font-medium">Nationwide Delivery (Pathao/RedX)</span></div><div className="flex items-center justify-center space-x-2"><Phone className="text-red-600" /><span className="font-medium">Cash On Delivery Available</span></div><div className="flex items-center justify-center space-x-2"><Star className="text-red-600" /><span className="font-medium">Premium Quality Guarantee</span></div></div></div></div>
+      
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="flex items-center justify-between mb-8 border-b pb-4"><h2 className="text-3xl font-bold text-gray-900">{selectedCategory === 'All' ? 'Latest Drops' : selectedCategory}</h2>{selectedCategory !== 'All' && <button onClick={() => setSelectedCategory('All')} className="text-red-600 text-sm font-medium hover:underline">Clear Filter</button>}</div>
         
-        {/* NEW: Loading State */}
         {loading ? (
           <div className="text-center py-20 text-gray-500">Loading products from cloud...</div>
         ) : (
