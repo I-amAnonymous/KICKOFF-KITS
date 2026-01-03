@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Menu, X, Star, Truck, Phone, Trash2, ArrowRight, CheckCircle, Loader2, Search, AlertCircle } from 'lucide-react';
+import Link from 'next/link';
 
 // --- COMPONENTS ---
 
@@ -80,14 +81,11 @@ const CartDrawer = ({ isOpen, onClose, cartItems, onRemoveItem, clearCart }) => 
   );
 };
 
-// --- UPDATED PRODUCT MODAL (Handles Stock) ---
+// --- PRODUCT MODAL ---
 const ProductModal = ({ product, isOpen, onClose, onConfirm }) => {
   const [size, setSize] = useState('');
   if (!isOpen || !product) return null;
-  
-  // Logic for Stock
   const isOutOfStock = product.in_stock === false;
-
   const handleAddToCart = () => { if (!size) { alert("Please select a size!"); return; } onConfirm(product, size); setSize(''); onClose(); };
   
   return (
@@ -104,34 +102,19 @@ const ProductModal = ({ product, isOpen, onClose, onConfirm }) => {
             <span className="text-sm text-gray-500 uppercase tracking-wider">{product.category}</span>
             <h2 className="text-xl font-bold text-gray-900 mt-1">{product.name}</h2>
             <p className="text-2xl font-bold text-gray-900 mt-2">৳ {product.price}</p>
-            
-            {/* Size Selector - Disable if OOS */}
             <div className="mt-6">
               <h3 className="text-sm font-medium text-gray-900 mb-3">Select Size</h3>
               <div className="grid grid-cols-3 gap-2">
                 {['M', 'L', 'XL', 'XXL'].map((s) => (
-                  <button 
-                    key={s} 
-                    onClick={() => !isOutOfStock && setSize(s)} 
-                    disabled={isOutOfStock}
-                    className={`py-2 text-sm font-bold rounded border ${size === s ? 'bg-black text-white border-black' : 'bg-white text-gray-900 border-gray-200'} ${isOutOfStock ? 'opacity-50 cursor-not-allowed' : 'hover:border-black'}`}
-                  >
-                    {s}
-                  </button>
+                  <button key={s} onClick={() => !isOutOfStock && setSize(s)} disabled={isOutOfStock} className={`py-2 text-sm font-bold rounded border ${size === s ? 'bg-black text-white border-black' : 'bg-white text-gray-900 border-gray-200'} ${isOutOfStock ? 'opacity-50 cursor-not-allowed' : 'hover:border-black'}`}>{s}</button>
                 ))}
               </div>
             </div>
           </div>
-          
-          {/* Action Button */}
           {isOutOfStock ? (
-            <button disabled className="mt-8 w-full bg-gray-200 text-gray-500 font-bold py-3 rounded-lg cursor-not-allowed flex items-center justify-center gap-2">
-              <AlertCircle size={20} /> Out of Stock
-            </button>
+            <button disabled className="mt-8 w-full bg-gray-200 text-gray-500 font-bold py-3 rounded-lg cursor-not-allowed flex items-center justify-center gap-2"><AlertCircle size={20} /> Out of Stock</button>
           ) : (
-            <button onClick={handleAddToCart} className="mt-8 w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2">
-              <ShoppingBag size={20} /><span>Add to Cart</span>
-            </button>
+            <button onClick={handleAddToCart} className="mt-8 w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"><ShoppingBag size={20} /><span>Add to Cart</span></button>
           )}
         </div>
       </div>
@@ -167,13 +150,7 @@ const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm,
                   {filteredSearch.map(product => (
                     <div key={product.id} onClick={() => { onProductClick(product); setSearchTerm(''); }} className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors">
                       <img src={product.image} className={`w-10 h-10 object-cover rounded bg-gray-100 ${product.in_stock === false ? 'grayscale' : ''}`} />
-                      <div className="flex-1">
-                        <p className="text-sm font-bold text-gray-900 line-clamp-1">{product.name}</p>
-                        <div className="flex justify-between items-center">
-                            <p className="text-xs text-gray-500">৳ {product.price}</p>
-                            {product.in_stock === false && <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1 rounded">SOLD OUT</span>}
-                        </div>
-                      </div>
+                      <div className="flex-1"><p className="text-sm font-bold text-gray-900 line-clamp-1">{product.name}</p><div className="flex justify-between items-center"><p className="text-xs text-gray-500">৳ {product.price}</p>{product.in_stock === false && <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1 rounded">SOLD OUT</span>}</div></div>
                     </div>
                   ))}
                 </div>
@@ -183,21 +160,10 @@ const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm,
           </div>
         </div>
       </div>
-      {/* Mobile Menu */}
       {isOpen && (
         <div className="sm:hidden bg-white border-t border-gray-100 relative">
           <div className="p-4 border-b border-gray-100">
              <input type="text" placeholder="Search jerseys..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-gray-100 px-4 py-2 rounded-lg text-sm focus:outline-none"/>
-              {searchTerm && filteredSearch.length > 0 && (
-                <div className="absolute left-4 right-4 bg-white shadow-xl rounded-xl border border-gray-100 mt-2 z-[60]">
-                  {filteredSearch.map(product => (
-                    <div key={product.id} onClick={() => { onProductClick(product); setSearchTerm(''); setIsOpen(false); }} className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0">
-                      <img src={product.image} className="w-10 h-10 object-cover rounded bg-gray-100" />
-                      <div><p className="text-sm font-bold text-gray-900">{product.name}</p><p className="text-xs text-gray-500">৳ {product.price}</p></div>
-                    </div>
-                  ))}
-                </div>
-              )}
           </div>
           <div className="pt-2 pb-4 space-y-1">
             <button onClick={() => handleFilter('Premier League')} className="block w-full text-left px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">Premier League</button>
@@ -210,32 +176,21 @@ const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm,
   );
 };
 
-// --- UPDATED PRODUCT CARD (Handles Stock) ---
-import Link from 'next/link'; // Add this line at the very top of page.js if missing!
-
+// --- PRODUCT CARD ---
 const ProductCard = ({ product, openQuickView }) => {
   const isOutOfStock = product.in_stock === false;
-
   return (
     <div className={`group relative bg-white border border-gray-100 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300 ${isOutOfStock ? 'opacity-80' : ''}`}>
-      {/* Make the Image Link to the Details Page */}
       <Link href={`/product/${product.id}`} className="block aspect-[4/5] bg-gray-200 relative overflow-hidden cursor-pointer">
         <img src={product.image} alt={product.name} className={`object-cover w-full h-full group-hover:scale-105 transition-transform duration-500 ${isOutOfStock ? 'grayscale' : ''}`} />
         {product.badge && !isOutOfStock && <span className="absolute top-2 left-2 bg-black text-white text-xs font-bold px-2 py-1 uppercase tracking-wider">{product.badge}</span>}
         {isOutOfStock && <span className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 uppercase tracking-wider shadow-sm">Sold Out</span>}
       </Link>
-      
       <div className="p-4">
         <h3 className="text-sm text-gray-500">{product.category}</h3>
-        
-        {/* Make the Title Link to the Details Page */}
-        <Link href={`/product/${product.id}`}>
-          <h2 className="text-lg font-semibold text-gray-900 truncate hover:text-red-600 transition-colors">{product.name}</h2>
-        </Link>
-        
+        <Link href={`/product/${product.id}`}><h2 className="text-lg font-semibold text-gray-900 truncate hover:text-red-600 transition-colors">{product.name}</h2></Link>
         <div className="flex items-center justify-between mt-2">
           <p className="text-lg font-bold text-gray-900">৳ {product.price}</p>
-          
           {isOutOfStock ? (
             <button disabled className="bg-gray-200 text-gray-500 text-sm px-4 py-2 rounded font-bold cursor-not-allowed">Sold Out</button>
           ) : (
@@ -254,17 +209,12 @@ export default function ClothingStore() {
   const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false); 
   const [currentProduct, setCurrentProduct] = useState(null);
-
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchProducts() {
-      try {
-        const res = await fetch('/api/products');
-        const data = await res.json();
-        if (Array.isArray(data)) { setProducts(data); }
-      } catch (err) { console.error("Failed to fetch products"); } finally { setLoading(false); }
+      try { const res = await fetch('/api/products'); const data = await res.json(); if (Array.isArray(data)) { setProducts(data); } } catch (err) {} finally { setLoading(false); }
     }
     fetchProducts();
   }, []);
@@ -289,7 +239,34 @@ export default function ClothingStore() {
       <ProductModal isOpen={isQuickViewOpen} product={currentProduct} onClose={() => setIsQuickViewOpen(false)} onConfirm={confirmAddToCart} />
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cartItems={cart} onRemoveItem={removeFromCart} clearCart={clearCart} />
       
-      <div className="relative bg-gray-900 text-white"><div className="absolute inset-0 bg-gray-800"></div><div className="relative max-w-7xl mx-auto px-4 py-24 sm:px-6 lg:px-8 flex flex-col items-center text-center"><h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-4">WEAR YOUR PASSION</h1><p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-2xl">Premium Player & Fan Version Jerseys. Delivered All Over Bangladesh.</p><button onClick={() => setSelectedCategory('All')} className="bg-white text-black font-bold py-3 px-8 rounded-full hover:bg-gray-200 transition-colors">Shop All Kits</button></div></div>
+      {/* --- NEW HERO SECTION WITH BACKGROUND IMAGE --- */}
+      <div className="relative bg-gray-900 text-white">
+        {/* Background Image Container */}
+        <div className="absolute inset-0 overflow-hidden">
+          {/* USES LOCAL FILE FROM PUBLIC FOLDER */}
+          <img 
+            src="/hero-bg.jpg" 
+            alt="Football Players Background" 
+            className="w-full h-full object-cover object-top" 
+          />
+          {/* Dark Overlay Gradient - Makes text readable */}
+          <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-black/30"></div>
+        </div>
+
+        <div className="relative max-w-7xl mx-auto px-4 py-32 sm:px-6 lg:px-8 flex flex-col items-center text-center">
+          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-4 text-white drop-shadow-lg">
+            WEAR YOUR PASSION
+          </h1>
+          <p className="text-xl md:text-2xl text-gray-100 mb-8 max-w-2xl drop-shadow-md font-medium">
+            Premium Player & Fan Version Jerseys. Delivered All Over Bangladesh.
+          </p>
+          <button onClick={() => setSelectedCategory('All')} className="bg-white text-black font-bold py-3 px-8 rounded-full hover:bg-gray-200 transition-colors shadow-xl">
+            Shop All Kits
+          </button>
+        </div>
+      </div>
+      {/* ------------------------------------------- */}
+
       <div className="bg-gray-50 border-y border-gray-100"><div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8"><div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center"><div className="flex items-center justify-center space-x-2"><Truck className="text-red-600" /><span className="font-medium">Nationwide Delivery (Pathao/RedX)</span></div><div className="flex items-center justify-center space-x-2"><Phone className="text-red-600" /><span className="font-medium">Cash On Delivery Available</span></div><div className="flex items-center justify-center space-x-2"><Star className="text-red-600" /><span className="font-medium">Premium Quality Guarantee</span></div></div></div></div>
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
