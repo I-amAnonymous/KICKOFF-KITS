@@ -12,7 +12,7 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('active'); // 'active' or 'history'
-  const [searchTerm, setSearchTerm] = useState(''); // For searching history
+  const [searchTerm, setSearchTerm] = useState(''); 
 
   // LOGIN
   const handleLogin = (e) => {
@@ -64,25 +64,27 @@ export default function AdminDashboard() {
   };
 
   // --- FILTERING LOGIC ---
-  // 1. Active Tab: Show everything EXCEPT 'Delivered'
-  const activeOrders = orders.filter(o => o.status !== 'Delivered');
-
-  // 2. History Tab: Show ONLY 'Delivered'
-  const deliveredOrders = orders.filter(o => o.status === 'Delivered');
-
-  // 3. Search Filter (Only applies to History tab)
-  const filteredHistory = deliveredOrders.filter(order => {
+  
+  // 1. Helper function to search any list
+  const filterList = (list) => {
+    if (!searchTerm) return list;
     const searchLower = searchTerm.toLowerCase();
-    return (
+    return list.filter(order => 
       order.customer.name.toLowerCase().includes(searchLower) ||
       order.customer.phone.includes(searchLower) ||
       order.customer.address.toLowerCase().includes(searchLower) ||
       order.id.toString().includes(searchLower)
     );
-  });
+  };
 
-  // Decide which list to show
-  const displayedOrders = activeTab === 'active' ? activeOrders : filteredHistory;
+  // 2. Separate the main lists
+  const activeOrdersRaw = orders.filter(o => o.status !== 'Delivered');
+  const deliveredOrdersRaw = orders.filter(o => o.status === 'Delivered');
+
+  // 3. Apply Search to whichever tab is open
+  const displayedOrders = activeTab === 'active' 
+    ? filterList(activeOrdersRaw) 
+    : filterList(deliveredOrdersRaw);
 
   if (!isAuthenticated) {
     return (
@@ -117,8 +119,8 @@ export default function AdminDashboard() {
         {/* STATS ROW */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200"><h3 className="text-gray-500 text-sm font-medium">Total Revenue (All Time)</h3><p className="text-3xl font-bold mt-2 text-green-600">৳ {orders.reduce((sum, order) => sum + order.total, 0)}</p></div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200"><h3 className="text-gray-500 text-sm font-medium">Active Orders</h3><p className="text-3xl font-bold mt-2 text-blue-600">{activeOrders.length}</p></div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200"><h3 className="text-gray-500 text-sm font-medium">Completed Orders</h3><p className="text-3xl font-bold mt-2 text-gray-600">{deliveredOrders.length}</p></div>
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200"><h3 className="text-gray-500 text-sm font-medium">Active Orders</h3><p className="text-3xl font-bold mt-2 text-blue-600">{activeOrdersRaw.length}</p></div>
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200"><h3 className="text-gray-500 text-sm font-medium">Completed Orders</h3><p className="text-3xl font-bold mt-2 text-gray-600">{deliveredOrdersRaw.length}</p></div>
         </div>
 
         {/* TABS NAVIGATION */}
@@ -127,38 +129,38 @@ export default function AdminDashboard() {
             onClick={() => setActiveTab('active')} 
             className={`pb-4 px-4 font-bold flex items-center gap-2 transition ${activeTab === 'active' ? 'text-black border-b-2 border-black' : 'text-gray-400 hover:text-gray-600'}`}
           >
-            <Clock size={18} /> Active Orders ({activeOrders.length})
+            <Clock size={18} /> Active Orders ({activeOrdersRaw.length})
           </button>
           <button 
             onClick={() => setActiveTab('history')} 
             className={`pb-4 px-4 font-bold flex items-center gap-2 transition ${activeTab === 'history' ? 'text-black border-b-2 border-black' : 'text-gray-400 hover:text-gray-600'}`}
           >
-            <Archive size={18} /> Order History ({deliveredOrders.length})
+            <Archive size={18} /> Order History ({deliveredOrdersRaw.length})
           </button>
         </div>
 
-        {/* SEARCH BAR (Only visible in History Tab) */}
-        {activeTab === 'history' && (
-          <div className="mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input 
-                type="text" 
-                placeholder="Search by Name, Address, or Phone..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-black focus:outline-none"
-              />
-            </div>
+        {/* GLOBAL SEARCH BAR (Always Visible Now) */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <input 
+              type="text" 
+              placeholder={activeTab === 'active' ? "Search Active Orders..." : "Search History..."}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-black focus:outline-none shadow-sm"
+            />
           </div>
-        )}
+        </div>
 
         {/* ORDERS LIST */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-6 border-b border-gray-100 flex justify-between items-center">
             <h2 className="text-lg font-bold text-black">{activeTab === 'active' ? 'Orders to Process' : 'Delivered Archive'}</h2>
           </div>
-          {loading ? <div className="p-10 text-center text-gray-500">Loading orders...</div> : displayedOrders.length === 0 ? <div className="p-10 text-center text-gray-500">{activeTab === 'active' ? 'No active orders! Good job.' : 'No history found.'}</div> : (
+          {loading ? <div className="p-10 text-center text-gray-500">Loading orders...</div> : displayedOrders.length === 0 ? <div className="p-10 text-center text-gray-500">
+            {searchTerm ? `No results found for "${searchTerm}"` : (activeTab === 'active' ? 'No active orders!' : 'No history found.')}
+          </div> : (
             <div className="divide-y divide-gray-100">
               {displayedOrders.map((order) => (
                 <div key={order.id} className={`p-6 hover:bg-gray-50 transition ${activeTab === 'history' ? 'opacity-75 grayscale-[0.5] hover:grayscale-0 hover:opacity-100' : ''}`}>
