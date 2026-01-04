@@ -41,15 +41,17 @@ export async function POST(request) {
   }
 }
 
-// 3. PUT: Update Stock
+// 3. PUT: Update Product (Stock OR Full Details)
 export async function PUT(request) {
   try {
     const body = await request.json();
-    const { id, in_stock } = body;
+    const { id, ...updates } = body; // Separate the ID from the data we want to update
+
     const { error } = await supabase
       .from('products')
-      .update({ in_stock })
+      .update(updates)
       .eq('id', id);
+
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch (error) {
