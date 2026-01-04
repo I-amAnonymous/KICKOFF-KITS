@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Menu, X, Star, Truck, Phone, Trash2, ArrowRight, CheckCircle, Loader2, Search, AlertCircle } from 'lucide-react';
+import { ShoppingBag, Menu, X, Star, Truck, Phone, Trash2, ArrowRight, CheckCircle, Loader2, Search, AlertCircle, Ticket } from 'lucide-react';
 import Link from 'next/link';
 
 // --- COMPONENTS ---
@@ -10,11 +10,44 @@ const CartDrawer = ({ isOpen, onClose, cartItems, onRemoveItem, clearCart }) => 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderId, setOrderId] = useState(null);
   const [formData, setFormData] = useState({ name: '', phone: '', address: '', city: 'Dhaka' });
+  
+  // COUPON STATE
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null); // { code: 'MESSI10', discount: 10 }
+  const [couponError, setCouponError] = useState('');
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
 
-  const total = cartItems.reduce((sum, item) => sum + item.price, 0);
+  // Calculations
+  const subtotal = cartItems.reduce((sum, item) => sum + item.price, 0);
+  const discountAmount = appliedCoupon ? (subtotal * appliedCoupon.discount) / 100 : 0;
+  const shipping = 60;
+  const total = subtotal - discountAmount + shipping;
 
-  useEffect(() => { if (!isOpen && step === 'success') { setStep('cart'); setOrderId(null); } }, [isOpen]);
+  useEffect(() => { 
+    if (!isOpen && step === 'success') { 
+      setStep('cart'); setOrderId(null); setAppliedCoupon(null); setCouponCode(''); 
+    } 
+  }, [isOpen]);
+
   const handleInputChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode) return;
+    setValidatingCoupon(true);
+    setCouponError('');
+    try {
+      const res = await fetch(`/api/coupons?code=${couponCode}`);
+      const data = await res.json();
+      if (data.success) {
+        setAppliedCoupon({ code: data.data.code, discount: data.data.discount_percent });
+        setCouponCode('');
+      } else {
+        setCouponError('Invalid Coupon');
+        setAppliedCoupon(null);
+      }
+    } catch (e) { setCouponError('Error checking code'); }
+    setValidatingCoupon(false);
+  };
 
   const handlePlaceOrder = async () => {
     if (!formData.name || !formData.phone || !formData.address) { alert("Please fill in all details!"); return; }
@@ -23,10 +56,17 @@ const CartDrawer = ({ isOpen, onClose, cartItems, onRemoveItem, clearCart }) => 
       const response = await fetch('/api/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customer: formData, items: cartItems, total: total })
+        body: JSON.stringify({ 
+          customer: formData, 
+          items: cartItems, 
+          total: total,
+          // 👇 NEW: Sending Coupon Details
+          discount_code: appliedCoupon?.code || null,
+          discount_amount: discountAmount || 0
+        })
       });
       const data = await response.json();
-      if (data.success) { setOrderId(data.orderId); setStep('success'); clearCart(); } 
+      if (data.success) { setOrderId(data.orderId); setStep('success'); clearCart(); setAppliedCoupon(null); } 
       else { alert("Something went wrong. Please try again."); }
     } catch (error) { console.error(error); alert("Network error."); } finally { setIsSubmitting(false); }
   };
@@ -54,7 +94,28 @@ const CartDrawer = ({ isOpen, onClose, cartItems, onRemoveItem, clearCart }) => 
                 <div><label className="block text-sm font-medium text-gray-700">Mobile Number</label><input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black" /></div>
                 <div><label className="block text-sm font-medium text-gray-700">Address</label><textarea name="address" value={formData.address} onChange={handleInputChange} rows={3} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black" /></div>
                 <div><label className="block text-sm font-medium text-gray-700">City</label><select name="city" value={formData.city} onChange={handleInputChange} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black"><option>Dhaka</option><option>Chittagong</option><option>Sylhet</option><option>Rajshahi</option><option>Khulna</option></select></div>
-                <div className="bg-blue-50 p-4 rounded-lg mt-4"><div className="flex justify-between text-sm text-blue-700 mb-1"><span>Subtotal</span><span>৳ {total}</span></div><div className="flex justify-between text-sm text-blue-700 font-bold border-t border-blue-200 pt-2 mt-2"><span>Total (COD)</span><span>৳ {total + 60}</span></div></div>
+                
+                {/* BILLING SECTION */}
+                <div className="bg-blue-50 p-4 rounded-lg mt-4 space-y-2">
+                  <div className="flex justify-between text-sm text-blue-700"><span>Subtotal</span><span>৳ {subtotal}</span></div>
+                  <div className="flex justify-between text-sm text-blue-700"><span>Shipping</span><span>৳ {shipping}</span></div>
+                  {appliedCoupon && <div className="flex justify-between text-sm text-green-700 font-bold"><span>Discount ({appliedCoupon.code})</span><span>- ৳ {discountAmount}</span></div>}
+                  <div className="flex justify-between text-base text-blue-900 font-bold border-t border-blue-200 pt-2 mt-2"><span>Total (COD)</span><span>৳ {total}</span></div>
+                </div>
+
+                {/* COUPON INPUT */}
+                {!appliedCoupon ? (
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="Promo Code" value={couponCode} onChange={(e) => setCouponCode(e.target.value)} className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm uppercase" />
+                    <button onClick={handleApplyCoupon} disabled={validatingCoupon || !couponCode} className="bg-black text-white px-4 py-2 rounded-md text-sm font-bold disabled:opacity-50">{validatingCoupon ? '...' : 'Apply'}</button>
+                  </div>
+                ) : (
+                  <div className="flex justify-between items-center bg-green-100 p-2 rounded text-sm text-green-800">
+                    <span className="flex items-center gap-1"><Ticket size={14}/> Code <b>{appliedCoupon.code}</b> applied!</span>
+                    <button onClick={() => setAppliedCoupon(null)} className="text-red-500 font-bold hover:underline">Remove</button>
+                  </div>
+                )}
+                {couponError && <p className="text-xs text-red-600 font-bold">{couponError}</p>}
               </div>
             )}
             {step === 'success' && (
@@ -69,7 +130,7 @@ const CartDrawer = ({ isOpen, onClose, cartItems, onRemoveItem, clearCart }) => 
           {step !== 'success' && cartItems.length > 0 && (
             <div className="border-t border-gray-200 p-4 space-y-4 bg-white">
               {step === 'cart' ? (
-                <><div className="flex justify-between text-base font-medium text-gray-900"><p>Subtotal</p><p>৳ {total}</p></div><button onClick={() => setStep('checkout')} className="w-full flex items-center justify-center rounded-md bg-black px-6 py-3 text-base font-medium text-white hover:bg-gray-800">Checkout <ArrowRight size={20} className="ml-2" /></button></>
+                <><div className="flex justify-between text-base font-medium text-gray-900"><p>Subtotal</p><p>৳ {subtotal}</p></div><button onClick={() => setStep('checkout')} className="w-full flex items-center justify-center rounded-md bg-black px-6 py-3 text-base font-medium text-white hover:bg-gray-800">Checkout <ArrowRight size={20} className="ml-2" /></button></>
               ) : (
                 <><button onClick={handlePlaceOrder} disabled={isSubmitting} className="w-full flex items-center justify-center rounded-md bg-green-600 px-6 py-3 text-base font-medium text-white hover:bg-green-700 disabled:bg-gray-400">{isSubmitting ? <><Loader2 className="animate-spin mr-2"/> Processing...</> : "Confirm Order"}</button><button onClick={() => setStep('cart')} disabled={isSubmitting} className="w-full text-center text-sm text-gray-600 hover:text-black">Back to Cart</button></>
               )}
@@ -239,33 +300,18 @@ export default function ClothingStore() {
       <ProductModal isOpen={isQuickViewOpen} product={currentProduct} onClose={() => setIsQuickViewOpen(false)} onConfirm={confirmAddToCart} />
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cartItems={cart} onRemoveItem={removeFromCart} clearCart={clearCart} />
       
-      {/* --- NEW HERO SECTION WITH BACKGROUND IMAGE --- */}
+      {/* --- HERO SECTION --- */}
       <div className="relative bg-gray-900 text-white">
-        {/* Background Image Container */}
         <div className="absolute inset-0 overflow-hidden">
-          {/* USES LOCAL FILE FROM PUBLIC FOLDER */}
-          <img 
-            src="/hero-bg.jpg" 
-            alt="Football Players Background" 
-            className="w-full h-full object-cover object-top" 
-          />
-          {/* Dark Overlay Gradient - Makes text readable */}
+          <img src="/hero-bg.jpg" alt="Football Players Background" className="w-full h-full object-cover object-top" />
           <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-black/30"></div>
         </div>
-
         <div className="relative max-w-7xl mx-auto px-4 py-32 sm:px-6 lg:px-8 flex flex-col items-center text-center">
-          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-4 text-white drop-shadow-lg">
-            WEAR YOUR PASSION
-          </h1>
-          <p className="text-xl md:text-2xl text-gray-100 mb-8 max-w-2xl drop-shadow-md font-medium">
-            Premium Player & Fan Version Jerseys. Delivered All Over Bangladesh.
-          </p>
-          <button onClick={() => setSelectedCategory('All')} className="bg-white text-black font-bold py-3 px-8 rounded-full hover:bg-gray-200 transition-colors shadow-xl">
-            Shop All Kits
-          </button>
+          <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-4 text-white drop-shadow-lg">WEAR YOUR PASSION</h1>
+          <p className="text-xl md:text-2xl text-gray-100 mb-8 max-w-2xl drop-shadow-md font-medium">Premium Player & Fan Version Jerseys. Delivered All Over Bangladesh.</p>
+          <button onClick={() => setSelectedCategory('All')} className="bg-white text-black font-bold py-3 px-8 rounded-full hover:bg-gray-200 transition-colors shadow-xl">Shop All Kits</button>
         </div>
       </div>
-      {/* ------------------------------------------- */}
 
       <div className="bg-gray-50 border-y border-gray-100"><div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8"><div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center"><div className="flex items-center justify-center space-x-2"><Truck className="text-red-600" /><span className="font-medium">Nationwide Delivery (Pathao/RedX)</span></div><div className="flex items-center justify-center space-x-2"><Phone className="text-red-600" /><span className="font-medium">Cash On Delivery Available</span></div><div className="flex items-center justify-center space-x-2"><Star className="text-red-600" /><span className="font-medium">Premium Quality Guarantee</span></div></div></div></div>
       
