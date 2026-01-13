@@ -55,3 +55,29 @@ export async function PUT(request) {
     return NextResponse.json({ success: false }, { status: 500 });
   }
 }
+
+// 4. DELETE: Remove Order(s)
+export async function DELETE(request) {
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get('id');
+  const allCancelled = searchParams.get('all_cancelled');
+
+  try {
+    let result;
+    
+    if (allCancelled === 'true') {
+      // Delete ALL Cancelled orders
+      result = await supabase.from('orders').delete().eq('status', 'Cancelled');
+    } else if (id) {
+      // Delete Single Order
+      result = await supabase.from('orders').delete().eq('id', id);
+    } else {
+      return NextResponse.json({ success: false, message: "Missing ID" }, { status: 400 });
+    }
+
+    if (result.error) throw result.error;
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+  }
+}

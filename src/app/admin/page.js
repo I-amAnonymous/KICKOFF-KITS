@@ -14,8 +14,8 @@ export default function AdminDashboard() {
   const [showPassword, setShowPassword] = useState(false);
 
   // DASHBOARD STATE
-  const [activeSection, setActiveSection] = useState('dashboard'); // NEW: Main Category State
-  const [activeTab, setActiveTab] = useState('overview');          // Existing: Specific View State
+  const [activeSection, setActiveSection] = useState('dashboard'); 
+  const [activeTab, setActiveTab] = useState('overview');          
   
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
@@ -74,6 +74,20 @@ export default function AdminDashboard() {
     await fetch('/api/order', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: orderId, status: newStatus }) });
   };
 
+  // --- NEW: DELETE LOGIC ---
+  const deleteOrder = async (id) => {
+    if (!confirm("Permanently delete this order record? This cannot be undone.")) return;
+    setOrders(orders.filter(o => o.id !== id)); // Optimistic UI update
+    await fetch(`/api/order?id=${id}`, { method: 'DELETE' });
+  };
+
+  const clearAllCancelled = async () => {
+    if (!confirm("WARNING: This will permanently delete ALL Cancelled orders. Are you sure?")) return;
+    setOrders(orders.filter(o => o.status !== 'Cancelled')); // Remove all cancelled from UI
+    await fetch(`/api/order?all_cancelled=true`, { method: 'DELETE' });
+  };
+  // -------------------------
+
   const handleImageUpload = async (e, type = 'product') => {
     const file = e.target.files[0];
     if (!file) return;
@@ -129,98 +143,46 @@ export default function AdminDashboard() {
   const toggleStock = async (product) => { const newStatus = !product.in_stock; setProducts(products.map(p => p.id === product.id ? { ...p, in_stock: newStatus } : p)); try { await fetch('/api/products', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: product.id, in_stock: newStatus }) }); } catch (err) { fetchProducts(); } };
   const deleteProduct = async (id) => { if (!confirm("Delete?")) return; setProducts(products.filter(p => p.id !== id)); try { await fetch(`/api/products?id=${id}`, { method: 'DELETE' }); } catch (err) { fetchProducts(); } };
   
-  // NEW: Tab Switching Logic
-  const startEdit = (product) => { 
-    setNewProduct(product); 
-    setEditingId(product.id); 
-    setActiveSection('products'); // Switch main category
-    setActiveTab('add');          // Switch sub-tab
-    window.scrollTo({ top: 0, behavior: 'smooth' }); 
-  };
+  const startEdit = (product) => { setNewProduct(product); setEditingId(product.id); setActiveSection('products'); setActiveTab('add'); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const switchSection = (section) => { setActiveSection(section); if (section === 'dashboard') setActiveTab('overview'); if (section === 'orders') setActiveTab('pending'); if (section === 'products') setActiveTab('manage'); if (section === 'marketing') setActiveTab('coupons'); if (section === 'settings') setActiveTab('settings'); };
 
-  const switchSection = (section) => {
-    setActiveSection(section);
-    // Set default sub-tab for each section
-    if (section === 'dashboard') setActiveTab('overview');
-    if (section === 'orders') setActiveTab('pending');
-    if (section === 'products') setActiveTab('manage');
-    if (section === 'marketing') setActiveTab('coupons');
-    if (section === 'settings') setActiveTab('settings');
-  };
-
-  // --- INVOICE GENERATOR ---
   const printInvoice = (order) => {
     const orderDate = new Date(order.created_at);
     const dateStr = orderDate.toLocaleDateString('en-GB').split('/').reverse().join(''); 
-    const sameDayOrders = orders.filter(o => {
-      const d = new Date(o.created_at);
-      return d.getDate() === orderDate.getDate() && d.getMonth() === orderDate.getMonth() && d.getFullYear() === orderDate.getFullYear();
-    });
+    const sameDayOrders = orders.filter(o => { const d = new Date(o.created_at); return d.getDate() === orderDate.getDate() && d.getMonth() === orderDate.getMonth() && d.getFullYear() === orderDate.getFullYear(); });
     sameDayOrders.sort((a, b) => a.id - b.id);
     const dailyIndex = sameDayOrders.findIndex(o => o.id === order.id) + 1;
     const dailySequence = String(dailyIndex).padStart(3, '0');
     const customOrderId = `#${dateStr}-${dailySequence}`;
-
     const printWindow = window.open('', '', 'width=800,height=600');
     printWindow.document.write(`<html><head><title>Invoice ${customOrderId}</title><style>body{font-family:'Courier New',Courier,monospace;padding:40px;color:#000}.header{text-align:center;border-bottom:2px solid #000;padding-bottom:20px;margin-bottom:30px}h1{margin:0;font-size:24px;letter-spacing:2px}.meta{display:flex;justify-content:space-between;margin-bottom:30px}.section-title{font-weight:bold;border-bottom:1px solid #ccc;margin-bottom:10px;padding-bottom:5px}table{width:100%;border-collapse:collapse;margin-bottom:30px}th{text-align:left;border-bottom:1px solid #000;padding:10px 0}td{padding:10px 0;border-bottom:1px solid #eee}.total-section{text-align:right;margin-top:20px}.grand-total{font-size:20px;font-weight:bold;border-top:2px solid #000;display:inline-block;padding-top:10px;margin-top:10px}</style></head><body><div class="header"><h1>KICKOFF KITS</h1><p>Premium Jerseys - Bangladesh</p></div><div class="meta"><div><div class="section-title">BILL TO</div><div>${order.customer.name}</div><div>${order.customer.phone}</div><div style="max-width:200px;">${order.customer.address}, ${order.customer.city}</div></div><div style="text-align:right;"><div class="section-title">ORDER INFO</div><div><strong>Invoice No:</strong> ${customOrderId}</div><div><strong>System ID:</strong> #${order.id}</div><div><strong>Date:</strong> ${orderDate.toLocaleDateString()}</div><div><strong>Status:</strong> ${order.status}</div></div></div><table><thead><tr><th>ITEM</th><th>SIZE</th><th>PRICE</th></tr></thead><tbody>${order.items.map(item=>`<tr><td>${item.name}</td><td>${item.selectedSize}</td><td>৳${item.price}</td></tr>`).join('')}</tbody></table><div class="total-section">${order.discount_code?`<div>Discount (${order.discount_code}): -৳${order.discount_amount}</div>`:''}<div>Shipping: ৳60</div><div class="grand-total">TOTAL DUE: ৳${order.total}</div></div><div style="text-align:center;margin-top:50px;font-size:12px;border-top:1px solid #eee;padding-top:20px;">Thank you for shopping with Kickoff Kits!</div></body></html>`);
     printWindow.document.close();
     printWindow.print();
   };
 
-  // --- STATS CALCULATION ---
   const calculateStats = () => {
-    const now = new Date();
-    const todayStr = now.toLocaleDateString();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    let dailyRev = 0, dailyCount = 0;
-    let monthlyRev = 0, monthlyCount = 0;
-    let yearlyRev = 0, yearlyCount = 0;
-    let totalRev = 0;
-
+    const now = new Date(); const todayStr = now.toLocaleDateString(); const currentMonth = now.getMonth(); const currentYear = now.getFullYear();
+    let dailyRev = 0, dailyCount = 0, monthlyRev = 0, monthlyCount = 0, yearlyRev = 0, yearlyCount = 0, totalRev = 0;
     orders.forEach(o => {
       if (o.status === 'Cancelled') return;
-      const d = new Date(o.created_at);
-      const rev = o.total || 0;
-      totalRev += rev;
-      if (d.getFullYear() === currentYear) {
-        yearlyRev += rev; yearlyCount++;
-        if (d.getMonth() === currentMonth) {
-          monthlyRev += rev; monthlyCount++;
-          if (d.toLocaleDateString() === todayStr) { dailyRev += rev; dailyCount++; }
-        }
-      }
+      const d = new Date(o.created_at); const rev = o.total || 0; totalRev += rev;
+      if (d.getFullYear() === currentYear) { yearlyRev += rev; yearlyCount++; if (d.getMonth() === currentMonth) { monthlyRev += rev; monthlyCount++; if (d.toLocaleDateString() === todayStr) { dailyRev += rev; dailyCount++; } } }
     });
-
-    const pendingCount = orders.filter(o => o.status === 'Pending').length;
-    const deliveredCount = orders.filter(o => o.status === 'Delivered').length;
-
-    const chartData = [
-      { name: 'Pending', value: orders.filter(o => o.status === 'Pending').reduce((s, o) => s + o.total, 0) },
-      { name: 'Approved', value: orders.filter(o => o.status === 'Approved').reduce((s, o) => s + o.total, 0) },
-      { name: 'Shipped', value: orders.filter(o => o.status === 'Shipped').reduce((s, o) => s + o.total, 0) },
-      { name: 'Delivered', value: orders.filter(o => o.status === 'Delivered').reduce((s, o) => s + o.total, 0) },
-    ];
+    const pendingCount = orders.filter(o => o.status === 'Pending').length; const deliveredCount = orders.filter(o => o.status === 'Delivered').length;
+    const chartData = [ { name: 'Pending', value: orders.filter(o => o.status === 'Pending').reduce((s, o) => s + o.total, 0) }, { name: 'Approved', value: orders.filter(o => o.status === 'Approved').reduce((s, o) => s + o.total, 0) }, { name: 'Shipped', value: orders.filter(o => o.status === 'Shipped').reduce((s, o) => s + o.total, 0) }, { name: 'Delivered', value: orders.filter(o => o.status === 'Delivered').reduce((s, o) => s + o.total, 0) } ];
     return { dailyRev, dailyCount, monthlyRev, monthlyCount, yearlyRev, yearlyCount, totalRev, pendingCount, deliveredCount, chartData };
   };
   const stats = calculateStats();
 
-  const filterList = (list) => { 
-    if (!searchTerm) return list; 
-    const s = searchTerm.toLowerCase(); 
-    return list.filter(o => o.customer?.name?.toLowerCase().includes(s) || o.customer?.phone?.includes(s) || o.id?.toString().includes(s)); 
-  };
+  const filterList = (list) => { if (!searchTerm) return list; const s = searchTerm.toLowerCase(); return list.filter(o => o.customer?.name?.toLowerCase().includes(s) || o.customer?.phone?.includes(s) || o.id?.toString().includes(s)); };
   const formatDate = (dateString) => { if (!dateString) return ''; return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); };
 
   const pendingOrders = filterList(orders.filter(o => o.status === 'Pending'));
   const confirmedOrders = filterList(orders.filter(o => o.status === 'Approved' || o.status === 'Shipped'));
   const deliveredOrders = filterList(orders.filter(o => o.status === 'Delivered'));
   const cancelledOrders = filterList(orders.filter(o => o.status === 'Cancelled'));
-
   const filteredProducts = products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
   const filteredCoupons = coupons.filter(c => c.code.toLowerCase().includes(searchTerm.toLowerCase()));
-  
   const displayedOrders = activeTab === 'pending' ? pendingOrders : activeTab === 'confirmed' ? confirmedOrders : activeTab === 'delivered' ? deliveredOrders : activeTab === 'cancelled' ? cancelledOrders : [];
 
   if (loadingAuth) return <div className="min-h-screen flex items-center justify-center bg-gray-900"><Loader2 className="animate-spin text-white" size={48} /></div>;
@@ -330,6 +292,14 @@ export default function AdminDashboard() {
         {/* --- ORDER LISTS --- */}
         {(activeTab === 'pending' || activeTab === 'confirmed' || activeTab === 'delivered' || activeTab === 'cancelled') && (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+             
+             {/* --- DELETE ALL BUTTON FOR CANCELLED TAB --- */}
+             {activeTab === 'cancelled' && cancelledOrders.length > 0 && (
+                <div className="p-4 bg-red-50 border-b border-red-100 flex justify-end">
+                    <button onClick={clearAllCancelled} className="text-red-600 font-bold text-sm flex items-center gap-2 px-4 py-2 hover:bg-red-100 rounded-lg transition"><Trash2 size={16} /> Delete All Cancelled Orders</button>
+                </div>
+             )}
+
              {displayedOrders.map((order) => (
                 <div key={order.id} className={`p-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition border-b border-gray-100 dark:border-gray-700 last:border-0 ${activeTab === 'delivered' || activeTab === 'cancelled' ? 'opacity-75' : ''}`}>
                   <div className="flex flex-col md:flex-row justify-between md:items-start gap-4">
@@ -343,6 +313,11 @@ export default function AdminDashboard() {
                       <div className="mt-2 mb-3"><span className={`px-3 py-1 rounded-full text-xs font-bold ${order.status === 'Pending' ? 'bg-blue-100 text-blue-800' : order.status === 'Approved' ? 'bg-purple-100 text-purple-800' : order.status === 'Shipped' ? 'bg-orange-100 text-orange-800' : order.status === 'Cancelled' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>{order.status}</span></div>
                       
                       <div className="flex flex-col gap-2">
+                        {/* --- ACTIONS FOR CANCELLED TAB: DELETE BUTTON --- */}
+                        {order.status === 'Cancelled' && (
+                            <button onClick={() => deleteOrder(order.id)} className="bg-red-100 text-red-600 px-3 py-2 rounded-lg text-xs font-bold hover:bg-red-200 flex items-center justify-center gap-1 border border-red-200"><Trash2 size={14}/> Delete</button>
+                        )}
+
                         {order.status === 'Pending' && <div className="flex gap-2 justify-end">
                             <button onClick={() => updateStatus(order.id, 'Cancelled')} className="bg-gray-100 text-red-600 border border-gray-200 px-3 py-2 rounded-lg text-sm font-bold hover:bg-red-50 flex items-center gap-1"><Ban size={14}/> Cancel</button>
                             <button onClick={() => updateStatus(order.id, 'Approved')} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700 shadow-sm animate-pulse flex items-center gap-1"><PhoneIncoming size={16} /> Confirm</button>
