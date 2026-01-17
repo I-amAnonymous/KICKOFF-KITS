@@ -1,7 +1,6 @@
 # ⚽ Kickoff Kits - Premium Jersey Store
 
 A full-stack e-commerce platform built for selling premium football jerseys in Bangladesh. This project features a dynamic storefront for customers and a powerful admin dashboard for business operations, logistics, and analytics.
-Live demo: kickoff-kits.vercel.app
 
 ![Project Status](https://img.shields.io/badge/Status-Production_Ready-success)
 ![Tech Stack](https://img.shields.io/badge/Stack-Next.js_14_|_Supabase_|_Tailwind-blue)
