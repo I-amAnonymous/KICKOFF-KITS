@@ -103,7 +103,7 @@ export default function ClothingStore() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // NEW: CMS STATE
+  // CMS STATE
   const [heroContent, setHeroContent] = useState({
     hero_headline: 'WEAR YOUR PASSION',
     hero_subheadline: 'Premium Player & Fan Version Jerseys. Delivered All Over Bangladesh.',
@@ -113,12 +113,10 @@ export default function ClothingStore() {
   useEffect(() => {
     async function fetchData() {
       try { 
-        // Fetch Products
         const prodRes = await fetch('/api/products'); 
         const prodData = await prodRes.json(); 
         if (Array.isArray(prodData)) setProducts(prodData);
         
-        // Fetch CMS Content
         const contentRes = await fetch('/api/content');
         const contentData = await contentRes.json();
         if (contentData) setHeroContent(contentData);
@@ -161,13 +159,22 @@ export default function ClothingStore() {
           <p className="text-xl md:text-2xl text-gray-100 mb-8 max-w-2xl drop-shadow-md font-medium">
             {heroContent.hero_subheadline}
           </p>
-          <button onClick={() => setSelectedCategory('All')} className="bg-white text-black font-bold py-3 px-8 rounded-full hover:bg-gray-200 transition-colors shadow-xl">Shop All Kits</button>
+          <button 
+            onClick={() => {
+              setSelectedCategory('All');
+              document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
+            }} 
+            className="bg-white text-black font-bold py-3 px-8 rounded-full hover:bg-gray-200 transition-colors shadow-xl"
+          >
+            Shop All Kits
+          </button>
         </div>
       </div>
 
       <div className="bg-gray-50 border-y border-gray-100"><div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8"><div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center"><div className="flex items-center justify-center space-x-2"><Truck className="text-red-600" /><span className="font-medium">Nationwide Delivery (Pathao/RedX)</span></div><div className="flex items-center justify-center space-x-2"><Phone className="text-red-600" /><span className="font-medium">Cash On Delivery Available</span></div><div className="flex items-center justify-center space-x-2"><Star className="text-red-600" /><span className="font-medium">Premium Quality Guarantee</span></div></div></div></div>
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      {/* --- MAIN PRODUCT GRID --- */}
+      <main id="products" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="flex items-center justify-between mb-8 border-b pb-4"><h2 className="text-3xl font-bold text-gray-900">{selectedCategory === 'All' ? 'Latest Drops' : selectedCategory}</h2>{selectedCategory !== 'All' && <button onClick={() => setSelectedCategory('All')} className="text-red-600 text-sm font-medium hover:underline">Clear Filter</button>}</div>
         
         {loading ? (
