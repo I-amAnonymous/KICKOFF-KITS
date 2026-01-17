@@ -1,10 +1,10 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Menu, X, Star, Truck, Phone, Trash2, ArrowRight, CheckCircle, Loader2, Search, AlertCircle, Ticket } from 'lucide-react';
+import { ShoppingBag, Menu, X, Star, Truck, Phone, Trash2, ArrowRight, CheckCircle, Loader2, Search, AlertCircle, Ticket, Minus, Plus } from 'lucide-react';
 import Link from 'next/link';
 
 // --- COMPONENTS ---
-const CartDrawer = ({ isOpen, onClose, cartItems, onRemoveItem, clearCart }) => {
+const CartDrawer = ({ isOpen, onClose, cartItems, onRemoveItem, onUpdateQuantity, clearCart }) => {
   const [step, setStep] = useState('cart');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderId, setOrderId] = useState(null);
@@ -14,7 +14,8 @@ const CartDrawer = ({ isOpen, onClose, cartItems, onRemoveItem, clearCart }) => 
   const [couponError, setCouponError] = useState('');
   const [validatingCoupon, setValidatingCoupon] = useState(false);
 
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price, 0);
+  // Calculate Subtotal based on Quantity
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const discountAmount = appliedCoupon ? (subtotal * appliedCoupon.discount) / 100 : 0;
   const shipping = 60;
   const total = subtotal - discountAmount + shipping;
@@ -38,8 +39,22 @@ const CartDrawer = ({ isOpen, onClose, cartItems, onRemoveItem, clearCart }) => 
   const handlePlaceOrder = async () => {
     if (!formData.name || !formData.phone || !formData.address) { alert("Please fill in all details!"); return; }
     setIsSubmitting(true);
+    
+    // EXPAND ITEMS: Turn [{id:1, qty:2}] into [{id:1}, {id:1}] so backend/email logic works perfectly
+    const expandedItems = cartItems.flatMap(item => Array(item.quantity).fill(item));
+
     try {
-      const response = await fetch('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customer: formData, items: cartItems, total: total, discount_code: appliedCoupon?.code || null, discount_amount: discountAmount || 0 }) });
+      const response = await fetch('/api/order', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ 
+          customer: formData, 
+          items: expandedItems, 
+          total: total, 
+          discount_code: appliedCoupon?.code || null, 
+          discount_amount: discountAmount || 0 
+        }) 
+      });
       const data = await response.json();
       if (data.success) { setOrderId(data.orderId); setStep('success'); clearCart(); setAppliedCoupon(null); } 
       else { alert("Something went wrong. Please try again."); }
@@ -53,7 +68,42 @@ const CartDrawer = ({ isOpen, onClose, cartItems, onRemoveItem, clearCart }) => 
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between p-4 border-b bg-gray-50"><h2 className="text-lg font-bold text-gray-900">{step === 'cart' ? `Your Cart` : step === 'checkout' ? 'Checkout' : 'Order Confirmed'}</h2><button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full"><X size={24} /></button></div>
           <div className="flex-1 overflow-y-auto p-4">
-            {step === 'cart' && ( <>{cartItems.length === 0 ? <div className="h-full flex flex-col items-center justify-center text-center text-gray-500"><ShoppingBag size={48} className="mb-4 opacity-20" /><p>Your bag is empty.</p></div> : <div className="space-y-4">{cartItems.map((item, index) => (<div key={index} className="flex gap-4 border-b border-gray-100 pb-4"><div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-md border border-gray-200"><img src={item.image} alt={item.name} className="h-full w-full object-cover"/></div><div className="flex flex-1 flex-col"><div className="flex justify-between text-base font-medium text-gray-900"><h3 className="line-clamp-1">{item.name}</h3><p className="ml-4">৳{item.price}</p></div><p className="mt-1 text-sm text-gray-500">Size: {item.selectedSize}</p><button onClick={() => onRemoveItem(index)} className="mt-2 text-sm text-red-600 flex items-center gap-1"><Trash2 size={14} /> Remove</button></div></div>))}</div>}</> )}
+            {step === 'cart' && ( 
+              <>
+                {cartItems.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center text-gray-500"><ShoppingBag size={48} className="mb-4 opacity-20" /><p>Your bag is empty.</p></div>
+                ) : (
+                  <div className="space-y-4">
+                    {cartItems.map((item, index) => (
+                      <div key={index} className="flex gap-4 border-b border-gray-100 pb-4">
+                        <div className="h-24 w-20 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
+                          <img src={item.image} alt={item.name} className="h-full w-full object-cover"/>
+                        </div>
+                        <div className="flex flex-1 flex-col justify-between">
+                          <div>
+                            <div className="flex justify-between text-base font-medium text-gray-900">
+                              <h3 className="line-clamp-1">{item.name}</h3>
+                              <p className="ml-4">৳{item.price * item.quantity}</p>
+                            </div>
+                            <p className="mt-1 text-sm text-gray-500">Size: {item.selectedSize}</p>
+                          </div>
+                          
+                          <div className="flex items-center justify-between mt-2">
+                            {/* QUANTITY CONTROLS */}
+                            <div className="flex items-center border border-gray-300 rounded-md">
+                              <button onClick={() => onUpdateQuantity(index, -1)} className="p-1 hover:bg-gray-100 text-gray-600"><Minus size={14} /></button>
+                              <span className="px-2 text-sm font-semibold w-8 text-center">{item.quantity}</span>
+                              <button onClick={() => onUpdateQuantity(index, 1)} className="p-1 hover:bg-gray-100 text-gray-600"><Plus size={14} /></button>
+                            </div>
+                            <button onClick={() => onRemoveItem(index)} className="text-sm text-red-600 flex items-center gap-1 hover:underline"><Trash2 size={14} /> Remove</button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </> 
+            )}
             {step === 'checkout' && (
               <div className="space-y-4 animate-in fade-in slide-in-from-right-10 duration-300">
                 <div><label className="block text-sm font-medium text-gray-700">Full Name</label><input type="text" name="name" value={formData.name} onChange={handleInputChange} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-black focus:outline-none focus:ring-1 focus:ring-black" /></div>
@@ -85,15 +135,11 @@ const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm,
   const [isOpen, setIsOpen] = useState(false);
   const filteredSearch = products.filter(p => searchTerm && p.name.toLowerCase().includes(searchTerm.toLowerCase()));
   
-  // UPDATED: Now scrolls to products when a category is picked
   const handleFilter = (category) => { 
     setCategory(category); 
     setIsOpen(false);
-    // Smooth scroll to the products section
     document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
   };
-
-  // UPDATED: Logo click resets to 'All' and scrolls to TOP
   const handleLogoClick = () => {
     setCategory('All');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -102,6 +148,7 @@ const Navbar = ({ cartCount, setCategory, onOpenCart, searchTerm, setSearchTerm,
   return ( <nav className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm"><div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div className="flex justify-between h-16 items-center"><div className="flex items-center sm:hidden"><button onClick={() => setIsOpen(!isOpen)} className="text-gray-800">{isOpen ? <X size={24} /> : <Menu size={24} />}</button></div><div className="flex-shrink-0 flex items-center cursor-pointer" onClick={handleLogoClick}><span className="text-2xl font-extrabold tracking-tighter text-black italic">KICKOFF<span className="text-red-600">.</span>KITS</span></div><div className="hidden sm:flex space-x-8"><button onClick={() => handleFilter('Premier League')} className="text-gray-600 hover:text-black font-medium">Premier League</button><button onClick={() => handleFilter('La Liga')} className="text-gray-600 hover:text-black font-medium">La Liga</button><button onClick={() => handleFilter('National Teams')} className="text-gray-600 hover:text-black font-medium">National Teams</button></div><div className="flex items-center gap-4"><div className="hidden md:block relative"><div className="flex items-center bg-gray-100 px-3 py-2 rounded-full"><Search size={16} className="text-gray-500"/><input type="text" placeholder="Search jerseys..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-transparent border-none focus:outline-none text-sm ml-2 w-32 md:w-48 placeholder-gray-500"/></div>{searchTerm && filteredSearch.length > 0 && ( <div className="absolute top-full left-0 w-64 bg-white shadow-xl rounded-xl border border-gray-100 mt-2 overflow-hidden z-[60]">{filteredSearch.map(product => ( <div key={product.id} onClick={() => { onProductClick(product); setSearchTerm(''); }} className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors"><img src={product.image} className={`w-10 h-10 object-cover rounded bg-gray-100 ${product.in_stock === false ? 'grayscale' : ''}`} /><div className="flex-1"><p className="text-sm font-bold text-gray-900 line-clamp-1">{product.name}</p><div className="flex justify-between items-center"><p className="text-xs text-gray-500">৳ {product.price}</p>{product.in_stock === false && <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1 rounded">SOLD OUT</span>}</div></div></div> ))}</div> )}</div><button onClick={onOpenCart} className="relative p-2 text-gray-800 hover:text-black"><ShoppingBag size={24} />{cartCount > 0 && <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-red-600 rounded-full">{cartCount}</span>}</button></div></div></div>{isOpen && ( <div className="sm:hidden bg-white border-t border-gray-100 relative"><div className="p-4 border-b border-gray-100"><input type="text" placeholder="Search jerseys..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-gray-100 px-4 py-2 rounded-lg text-sm focus:outline-none"/></div><div className="pt-2 pb-4 space-y-1"><button onClick={() => handleFilter('Premier League')} className="block w-full text-left px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">Premier League</button><button onClick={() => handleFilter('La Liga')} className="block w-full text-left px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">La Liga</button><button onClick={() => handleFilter('National Teams')} className="block w-full text-left px-4 py-2 text-base font-medium text-gray-700 hover:bg-gray-50">National Teams</button></div></div> )}</nav> );
 };
 
+// --- RESTORED COMPONENT: ProductCard ---
 const ProductCard = ({ product, openQuickView }) => {
   const isOutOfStock = product.in_stock === false;
   return ( <div className={`group relative bg-white border border-gray-100 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-300 ${isOutOfStock ? 'opacity-80' : ''}`}><Link href={`/product/${product.id}`} className="block aspect-[4/5] bg-gray-200 relative overflow-hidden cursor-pointer"><img src={product.image} alt={product.name} className={`object-cover w-full h-full group-hover:scale-105 transition-transform duration-500 ${isOutOfStock ? 'grayscale' : ''}`} />{product.badge && !isOutOfStock && <span className="absolute top-2 left-2 bg-black text-white text-xs font-bold px-2 py-1 uppercase tracking-wider">{product.badge}</span>}{isOutOfStock && <span className="absolute top-2 right-2 bg-red-600 text-white text-xs font-bold px-2 py-1 uppercase tracking-wider shadow-sm">Sold Out</span>}</Link><div className="p-4"><h3 className="text-sm text-gray-500">{product.category}</h3><Link href={`/product/${product.id}`}><h2 className="text-lg font-semibold text-gray-900 truncate hover:text-red-600 transition-colors">{product.name}</h2></Link><div className="flex items-center justify-between mt-2"><p className="text-lg font-bold text-gray-900">৳ {product.price}</p>{isOutOfStock ? ( <button disabled className="bg-gray-200 text-gray-500 text-sm px-4 py-2 rounded font-bold cursor-not-allowed">Sold Out</button> ) : ( <button onClick={() => openQuickView(product)} className="bg-black text-white text-sm px-4 py-2 rounded hover:bg-gray-800 transition-colors">Add</button> )}</div></div></div> );
@@ -117,7 +164,6 @@ export default function ClothingStore() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // CMS STATE
   const [heroContent, setHeroContent] = useState({
     hero_headline: 'WEAR YOUR PASSION',
     hero_subheadline: 'Premium Player & Fan Version Jerseys. Delivered All Over Bangladesh.',
@@ -130,11 +176,9 @@ export default function ClothingStore() {
         const prodRes = await fetch('/api/products'); 
         const prodData = await prodRes.json(); 
         if (Array.isArray(prodData)) setProducts(prodData);
-        
         const contentRes = await fetch('/api/content');
         const contentData = await contentRes.json();
         if (contentData) setHeroContent(contentData);
-
       } catch (err) {} finally { setLoading(false); }
     }
     fetchData();
@@ -144,10 +188,48 @@ export default function ClothingStore() {
   useEffect(() => { localStorage.setItem('kickoff-cart', JSON.stringify(cart)); }, [cart]);
 
   const openQuickView = (product) => { setCurrentProduct(product); setIsQuickViewOpen(true); };
-  const confirmAddToCart = (product, size) => { setCart([...cart, { ...product, selectedSize: size }]); setIsCartOpen(true); };
+  
+  // ADD TO CART LOGIC
+  const confirmAddToCart = (product, size) => { 
+    setCart(prevCart => {
+      const existingItemIndex = prevCart.findIndex(item => item.id === product.id && item.selectedSize === size);
+      if (existingItemIndex >= 0) {
+        // Safe update (no mutation)
+        const newCart = [...prevCart];
+        newCart[existingItemIndex] = {
+          ...newCart[existingItemIndex],
+          quantity: (newCart[existingItemIndex].quantity || 1) + 1
+        };
+        return newCart;
+      } else {
+        return [...prevCart, { ...product, selectedSize: size, quantity: 1 }];
+      }
+    });
+    setIsCartOpen(true); 
+  };
+
+  // --- FIXED UPDATE QUANTITY LOGIC ---
+  const updateQuantity = (index, delta) => {
+    setCart(prevCart => {
+      const newCart = [...prevCart]; // 1. Copy the array
+      
+      const currentQty = newCart[index].quantity || 1;
+      const newQty = currentQty + delta;
+      
+      if (newQty < 1) return prevCart; // Don't allow 0
+      
+      // 2. CRITICAL FIX: Create a NEW object. Do not mutate the old one.
+      newCart[index] = { ...newCart[index], quantity: newQty };
+      
+      return newCart;
+    });
+  };
+
   const removeFromCart = (index) => { setCart(cart.filter((_, i) => i !== index)); };
   const clearCart = () => { setCart([]); localStorage.removeItem('kickoff-cart'); };
   
+  const cartCount = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
+
   const filteredProducts = products.filter(product => {
     const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -156,11 +238,19 @@ export default function ClothingStore() {
 
   return (
     <div className="min-h-screen bg-white font-sans text-gray-900">
-      <Navbar cartCount={cart.length} setCategory={setSelectedCategory} onOpenCart={() => setIsCartOpen(true)} searchTerm={searchTerm} setSearchTerm={setSearchTerm} products={products} onProductClick={openQuickView} />
+      <Navbar cartCount={cartCount} setCategory={setSelectedCategory} onOpenCart={() => setIsCartOpen(true)} searchTerm={searchTerm} setSearchTerm={setSearchTerm} products={products} onProductClick={openQuickView} />
       <ProductModal isOpen={isQuickViewOpen} product={currentProduct} onClose={() => setIsQuickViewOpen(false)} onConfirm={confirmAddToCart} />
-      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} cartItems={cart} onRemoveItem={removeFromCart} clearCart={clearCart} />
       
-      {/* --- HERO SECTION (DYNAMIC) --- */}
+      <CartDrawer 
+        isOpen={isCartOpen} 
+        onClose={() => setIsCartOpen(false)} 
+        cartItems={cart} 
+        onRemoveItem={removeFromCart} 
+        onUpdateQuantity={updateQuantity}
+        clearCart={clearCart} 
+      />
+      
+      {/* --- HERO SECTION --- */}
       <div className="relative bg-gray-900 text-white">
         <div className="absolute inset-0 overflow-hidden">
           <img src={heroContent.hero_image} alt="Hero Background" className="w-full h-full object-cover object-top" />
